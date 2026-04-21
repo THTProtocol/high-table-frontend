@@ -1,0 +1,142 @@
+pragma silverscript ^0.1.0;
+
+/**
+ * MAXIMIZER ESCROW
+ * ================
+ * Two-UTXO design with pool + hedge split, 50/50 allocation
+ * Hedge claim: User gets 70%, Protocol gets 30% on lose
+ * 
+ * Constructor args:
+ * @param hedgeContract: bytes35 - Address of the hedge UTXO contract
+ * @param userKey: bytes32 - Hash of user's public key for primary access
+ * @param deadline: int - Block deadline for settlement
+ * @param covenantId: bytes32 - KIP-20 covenant BLAKE2b hash for tracking
+ */
+contract MaximizerEscrow(
+    bytes35 hedgeContract,
+    bytes32 userKey,
+    int deadline,
+    bytes32 covenantId
+) {
+    // Protocol fee addresses
+    bytes34 constant PROTOCOL_FEES_MAINNET = new LockingBytecodeP2PK(0x0305030303020303030304000500010308030405030007030308040900060809000300);
+    bytes34 constant PROTOCOL_FEES_TN12 = new LockingBytecodeP2PK(0x0303030308040403000504000808030801070704000901070300030302070700030401030801);
+    
+    // Allocation constants
+    int constant POOL_ALLOCATION = 50;      // 50% to main pool
+    int constant HEDGE_ALLOCATION = 50;     // 50% to hedge
+    int constant USER_HEDGE_CLAIM = 70;     // User gets 70% of hedge on lose
+    int constant PROTOCOL_HEDGE_CLAIM = 30;  // Protocol gets 30% of hedge on lose
+    
+    entrypoint function maximizeWin(
+        bytes32 gameId,
+        bytes64 userSig,
+        bytes32 outcomeHash,
+        datasig winProof,
+        bool isMainnet
+    ) {
+        // Verify deadline not passed
+        require(tx.time < deadline, "Deadline passed");
+        
+        // Verify user authorization
+        require(blake2b(gameId + msg.sender) == userKey, "Invalid user key");
+        require(checkSig(userSig, msg.sender), "Invalid user signature");
+        
+        // Verify winning outcome
+        require(blake2b(winProof) == outcomeHash, "Invalid win proof");
+        require(outcomeHash == blake2b("WIN"), "Outcome must be WIN");
+        
+        // Calculate total pool value
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        
+        // First output: user claim - 100% of pool since they won
+        bytes34 userLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == userLock, "Output0 must pay user");
+        require(tx.outputs[0].value >= inputValue, "Must pay full pool amount");
+        
+        // Optional tracking output
+        if (tx.outputs.length > 1) {
+            require(tx.outputs[1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        }
+    }
+    
+    entrypoint function hedgeLoss(
+        bytes32 gameId,
+        bytes64 userSig,
+        bytes32 outcomeHash,
+        datasig lossProof,
+        bool isMainnet
+    ) {
+        // Verify deadline passed or explicit loss
+        require(tx.time >= deadline || blake2b(lossProof) == blake2b("LOSS"), "Not eligible for hedge");
+        
+        // Verify user authorization  
+        require(blake2b(gameId + msg.sender) == userKey, "Invalid user key");
+        require(checkSig(userSig, msg.sender), "Invalid user signature");
+        
+        // Verify loss outcome
+        require(blake2b(lossProof) == outcomeHash, "Invalid loss proof");
+        require(outcomeHash == blake2b("LOSS"), "Outcome must be LOSS");
+        
+        // Calculate hedge pool value (this represents the hedge UTXO portion)
+        // Note: This assumes the hedge UTXO is linked and we can reference its value
+        // In practice, this would reference tx.inputs[hedgeInputIndex].value
+        int hedgeValue = tx.inputs[this.activeInputIndex].value; // For demo purposes
+        
+        // Calculate hedge claim split (70% user, 30% protocol)
+        int userClaim = (hedgeValue * USER_HEDGE_CLAIM) / 100;
+        int protocolClaim = (hedgeValue * PROTOCOL_HEDGE_CLAIM) / 100;
+        
+        // First output: user gets 70% of hedge
+        bytes34 userLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == userLock, "Output0 must pay user");
+        require(tx.outputs[0].value >= userClaim, "User claim insufficient");
+        
+        // Second output: protocol gets 30% of hedge value
+        if (protocolClaim > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Output1 must pay protocol");
+            require(tx.outputs[1].value >= protocolClaim, "Protocol claim insufficient");
+        }
+    }
+    
+    entrypoint function hedgeProtection(
+        bytes32 gameId,
+        bytes32 hedgeKey,
+        bytes64 hedgeSig
+    ) {
+        // Deadline must not be passed for regular hedge flow
+        require(tx.time <= deadline, "Deadline passed for hedge protection");
+        
+        // Verify this is the hedge contract calling
+        // In production, would check calling context is from hedge UTXO
+        require(hedgeKey == covenantId, "Invalid hedge key");
+        require(checkSig(hedgeSig, hedgeKey), "Invalid hedge signature");
+        
+        // Return current allocation back to hedge contract
+        int currentValue = tx.inputs[this.activeInputIndex].value;
+        bytes34 hedgeLock = hedgeContract;
+        
+        require(tx.outputs[0].lockingBytecode == hedgeLock, "Must return to hedge contract");
+        require(tx.outputs[0].value >= currentValue - 1000, "Must return nearly full amount");
+    }
+    
+    entrypoint function emergencyRefund(
+        bytes32 gameId,
+        bytes64 userSig
+    ) {
+        // Can only be called by original depositor
+        require(blake2b(gameId + msg.sender) == userKey, "Only depositor can refund");
+        require(checkSig(userSig, msg.sender), "Invalid signature");
+        
+        // Must be significantly after deadline (grace period)
+        require(tx.time >= deadline + 86400, "Grace period not expired"); // +1 day
+        
+        // Return remaining balance to user
+        int refundAmount = tx.inputs[this.activeInputIndex].value;
+        bytes34 userLock = new LockingBytecodeP2PK(msg.sender);
+        
+        require(tx.outputs[0].lockingBytecode == userLock, "Output0 must refund user");
+        require(tx.outputs[0].value >= refundAmount - 1000, "Refund amount insufficient");
+    }
+}

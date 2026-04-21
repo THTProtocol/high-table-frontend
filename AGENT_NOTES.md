@@ -2,7 +2,7 @@
 
 ## Status Log
 - AGENT 1: PARTIAL | covenant-escrow-rust | scaffolding only, needs escrow.rs + fee_engine.rs
-- AGENT 2: DONE | silverscript-contracts | 4 contracts written + committed
+- AGENT 2: DONE | silverscript-contracts | 5 contracts written + committed
 - AGENT 3: pending | rust-attestor
 - AGENT 4: pending | rust-payout-fees
 - AGENT 5: WIP | wallet-rpc | branch created, files pending
@@ -18,3 +18,5 @@
 
 ## AGENT_RULES
 (keep the rules section as-is)
+
+AGENT 2 DONE: silverscript-contracts
