@@ -1,0 +1,196 @@
+pragma silverscript ^0.1.0;
+
+/**
+ * HEDGE ESCROW
+ * ============
+ * Hedge UTXO for maximizer contract with 70/30 claim path on loss
+ * Acts as insurance pool for maximizer betting system
+ * 
+ * Constructor Parameters:
+ * @param poolContract: bytes35 - Allocation goes 70% user, 30% protocol on loss
+ * @param userKey: bytes32 - User's commitment hash who can claim hedged loss
+ * @param activationBlock: int - When hedge becomes active for claiming
+ * @param deadline: int - Maximum block for hedge settlement
+ * @param covenantId: bytes32 - KIP-20 covenant BLAKE2b hash for tracking
+ */
+contract HedgeEscrow(
+    bytes35 poolContract,
+    bytes32 userKey,
+    int activationBlock,
+    int deadline,
+    bytes32 covenantId
+) {
+    // Protocol fee addresses (same as other contracts)
+    bytes34 constant PROTOCOL_FEES_MAINNET = new LockingBytecodeP2PK(0x0305030303020303030304000500010308030405030007030308040900060809000300);
+    bytes34 constant PROTOCOL_FEES_TN12 = new LockingBytecodeP2PK(0x0303030308040403000504000808030801070704000901070300030302070700030401030801);
+
+    // Allocation constants
+    int constant USER_HEDGE_SHARE = 70;      // User gets 70% of hedge on eligible loss
+    int constant PROTOCOL_HEDGE_SHARE = 30;  // Protocol gets 30% of hedge on loss
+    int constant HEDGE_PRESERVE = 1000;      // Minimum value to preserve contract
+    
+    // Pre-compilation validation
+    require(deadline > activationBlock, "Deadline must be after activation");
+    require(activationBlock > 0, "Activation block must be positive");
+
+    entrypoint function activateHedge(
+        bytes32 gameId,
+        bytes32 activationKey,
+        bytes64 activationSig
+    ) {
+        // Only can activate if activation block passed
+        require(tx.time >= activationBlock, "Activation block not reached");
+        
+        // Verify activation authorization
+        require(blake2b(gameId) == activationKey, "Invalid activation key");
+        require(checkSig(activationSig, activationKey), "Invalid activation signature");
+        
+        // Hedge is now live - mark by creating a self-referencing output
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        bytes34 selfLock = tx.inputs[this.activeInputIndex].lockingBytecode;
+        
+        require(tx.outputs[0].lockingBytecode == selfLock, "Hedge must continue");
+        require(tx.outputs[0].value >= hedgeValue - 500, "Preserve hedge value");
+    }
+
+    entrypoint function claimHedgeProtection(
+        bytes32 gameId,
+        bytes64 userSig,
+        bytes32 lossOutcomeHash,
+        datasig lossProof,
+        bool isMainnet
+    ) {
+        // Must be after activation but before deadline (grace period)
+        require(
+            tx.time >= activationBlock && tx.time < deadline,
+            "Not in valid hedge claim period"
+        );
+        
+        // Verify user is authorized for this hedge
+        require(blake2b(gameId + msg.sender) == userKey, "User not authorized for hedge");
+        require(checkSig(userSig, msg.sender), "Invalid user signature");
+        
+        // Validate loss outcome
+        require(blake2b(lossProof) == lossOutcomeHash, "Loss proof invalid");
+        require(lossOutcomeHash == blake2b("LOSS:" + gameId), "Outcome must be loss");
+        
+        // Calculate hedge allocation (70% user, 30% protocol)
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        int userAllocation = (hedgeValue * USER_HEDGE_SHARE) / 100;
+        int protocolAllocation = (hedgeValue * PROTOCOL_HEDGE_SHARE) / 100;
+        
+        // First output: user gets 70% of hedge value
+        bytes34 userLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == userLock, "Output0 must pay user");
+        require(tx.outputs[0].value >= userAllocation, "User hedge claim insufficient");
+        
+        // Second output: protocol gets 30% of hedge value
+        if (protocolAllocation > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Output1 must pay protocol");
+            require(tx.outputs[1].value >= protocolAllocation, "Protocol hedge share insufficient");
+        }
+        
+        // Optional tracking output
+        if (tx.outputs.length > 2) {
+            require(tx.outputs[2].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        }
+    }
+
+    entrypoint function hedgeMaturity(
+        bytes32 gameId,
+        bytes32 adminKey,
+        bytes64 adminSig
+    ) {
+        // After deadline passes, admin can mature the hedge
+        require(tx.time >= deadline, "Hedge maturity not reached");
+        
+        // Verify admin authorization (could be oracle or protocol admin)
+        require(blake2b(gameId + adminKey) == covenantId, "Admin not authorized");
+        require(checkSig(adminSig, adminKey), "Invalid admin signature");
+        
+        // Hedge matures - return remaining value to pool contract
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        bytes34 poolLock = poolContract;
+        
+        require(tx.outputs[0].lockingBytecode == poolLock, "Hedge must return to pool");
+        require(tx.outputs[0].value >= hedgeValue - 1000, "Return hedge value minus fees");
+    }
+
+    entrypoint function emergencyHedgeReturn(
+        bytes32 gameId,
+        bytes32 emergencyKey,
+        bytes64 emergencySig
+    ) {
+        // Special case - if game cancelled, hedge should return to user
+        // This would need coordination with game contract state
+        require(
+            tx.time >= deadline + (86400 * 7), // 7 days grace after deadline
+            "Emergency period not reached"
+        );
+        
+        // Emergency key hardcoded to protocol (safety mechanism)
+        require(blake2b(gameId + emergencyKey) == covenantId, "Emergency key invalid");
+        require(checkSig(emergencySig, emergencyKey), "Invalid emergency signature");
+        
+        // Return hedge value to user instead of protocol
+        bytes34 userLock = new LockingBytecodeP2PK(userKey);
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        
+        require(tx.outputs[0].lockingBytecode == userLock, "Emergency return to user");
+        require(tx.outputs[0].value >= hedgeValue - 1000, "Return full hedge value");
+    }
+
+    entrypoint function hedgeCancellation(
+        bytes32 gameId,
+        bytes64 userSig,
+        datasig cancelProof
+    ) {
+        // If game gets cancelled before activation, user can reclaim hedge
+        require(
+            tx.time < activationBlock,
+            "Can only cancel before activation"
+        );
+        
+        // Verify user authorization
+        require(blake2b(gameId + msg.sender) == userKey, "Only hedge user can cancel");
+        require(checkSig(userSig, msg.sender), "Invalid user signature");
+        
+        // Verify cancellation is authorized (game wise)
+        require(
+            blake2b(cancelProof) == blake2b(gameId + ":CANCELLED"),
+            "Game cancellation not verified"
+        );
+        
+        // Return hedge value to user
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        bytes34 userLock = new LockingBytecodeP2PK(msg.sender);
+        
+        require(tx.outputs[0].lockingBytecode == userLock, "Hedge refund to user");
+        require(tx.outputs[0].value >= hedgeValue - 500, "Full hedge refund minus fees");
+    }
+
+    entrypoint function hedgeUpgrade(
+        bytes32 gameId,
+        bytes32 newHedgeContract,
+        bytes64 upgradeAuth
+    ) {
+        // Allows upgrading hedge terms in cooperation with user
+        require(tx.time < activationBlock, "Cannot upgrade active hedge");
+        
+        // Dual authorization required
+        require(
+            blake2b(newHedgeContract + gameId) == blake2b(covenantId),
+            "Invalid upgrade contract"
+        );
+        require(checkSig(upgradeAuth, covenantId), "Upgrade not authorized");
+        
+        // Transfer to new hedge contract
+        int hedgeValue = tx.inputs[this.activeInputIndex].value;
+        // Cast bytes32 to bytes35 by appending 3 zero bytes (protocol handles this)
+        bytes34 newLock = new LockingBytecodeP2SH(newHedgeContract);
+        
+        require(tx.outputs[0].lockingBytecode == newLock, "Transfer to upgrade contract");
+        require(tx.outputs[0].value >= hedgeValue - 500, "Preserve hedge value");
+    }
+}
