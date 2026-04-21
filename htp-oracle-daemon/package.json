@@ -1,0 +1,19 @@
+{
+  "name": "htp-oracle-daemon",
+  "version": "1.0.0",
+  "description": "HTP Protocol oracle attestation daemon",
+  "main": "oracle-daemon.js",
+  "scripts": {
+    "start": "node oracle-daemon.js",
+    "dev": "node --watch oracle-daemon.js",
+    "miner": "node miner/monitor.js",
+    "settler": "node settler/watcher.js",
+    "all": "node oracle-daemon.js & node miner/monitor.js & node settler/watcher.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "firebase-admin": "^12.0.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.20.0"
+  }
+}

@@ -1,0 +1,36 @@
+name: HTP Oracle Daemon (Cron)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:         # manual trigger from GitHub UI
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write Firebase service key
+        run: echo '${{ secrets.FIREBASE_SERVICE_KEY_JSON }}' > serviceAccountKey.json
+
+      - name: Run oracle daemon (single cycle)
+        env:
+          ORACLE_MNEMONIC:      ${{ secrets.ORACLE_MNEMONIC }}
+          FIREBASE_DB_URL:      ${{ secrets.FIREBASE_DB_URL }}
+          FIREBASE_SERVICE_KEY: ./serviceAccountKey.json
+          NETWORK:              tn12
+          THRESHOLD:            1
+          POLL_INTERVAL_MS:     999999999
+        run: timeout 180 node oracle-daemon-once.js || true

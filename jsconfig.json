@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "checkJs": false,
+    "strict": false,
+    "noEmit": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "kaspa_bg.wasm",
+    "firebase-app-compat.js",
+    "firebase-database-compat.js",
+    "chess.min.js",
+    "htp-oracle-daemon",
+    "functions/node_modules"
+  ]
+}

@@ -1,0 +1,6 @@
+serviceAccountKey.json
+
+# secrets
+serviceAccountKey.json
+htp-oracle-daemon/serviceAccountKey.json
+**/serviceAccountKey.json

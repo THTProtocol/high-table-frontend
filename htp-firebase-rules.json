@@ -1,0 +1,28 @@
+{
+  "rules": {
+    ".read": "auth != null || true",
+    ".write": "auth != null || true",
+    "matches": {
+      "$matchId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "relay": {
+      "$matchId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "escrows": {
+      "$matchId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "lobby": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "matches": {
+      ".read": true,
+      ".write": true
+    },
+    "relay": {
+      ".read": true,
+      ".write": true
+    },
+    "events": {
+      ".read": true,
+      ".write": true
+    },
+    "attestations": {
+      ".read": true,
+      ".write": true
+    },
+    "walletstats": {
+      ".read": true,
+      ".write": true
+    },
+    "oracleBonds": {
+      ".read": true,
+      ".write": true
+    },
+    "lobby": {
+      ".read": true,
+      ".write": true
+    },
+    "treasury": {
+      ".read": true,
+      ".write": false
+    },
+    "markets": {
+      ".read": true,
+      ".write": true
+    },
+    "rebateClaims": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

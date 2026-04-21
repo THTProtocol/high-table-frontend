@@ -1,0 +1,8 @@
+# Vendored / minified files — do not lint
+firebase-app-compat.js
+firebase-database-compat.js
+chess.min.js
+kaspa_bg.wasm
+node_modules/
+functions/node_modules/
+htp-oracle-daemon/node_modules/

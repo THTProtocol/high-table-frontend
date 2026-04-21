@@ -1,0 +1,35 @@
+{
+  "python.testing.pytestArgs": ["htp-oracle-daemon"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+
+  "javascript.validate.enable": false,
+  "typescript.validate.enable": false,
+
+  "eslint.enable": true,
+  "eslint.options": {
+    "overrideConfig": {
+      "env": { "browser": true, "es2020": true, "node": true },
+      "parserOptions": { "ecmaVersion": 2020 },
+      "rules": {}
+    }
+  },
+
+  "[javascript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features",
+    "editor.formatOnSave": false
+  },
+
+  "files.associations": {
+    "*.js": "javascript"
+  },
+
+  "editor.codeActionsOnSave": {},
+
+  "html.validate.scripts": false,
+  "html.validate.styles": false,
+
+  "problems.decorations.enabled": true,
+
+  "typescript.disableAutomaticTypeAcquisition": true
+}
