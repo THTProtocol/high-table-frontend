@@ -1,71 +1,22 @@
 {
   "rules": {
-    "matches": {
-      ".indexOn": ["info/status", "info/game", "info/created"],
-      ".read": true,
-      ".write": true
-    },
-    "relay": {
-      "$matchId": {
-        ".read": true,
-        ".write": true
-      }
-    },
-    "lobby": {
-      ".read": true,
-      ".write": true
-    },
-    "kaspa": {
-      ".read": true,
-      ".write": true
-    },
-    "markets": {
-      ".read": true,
-      ".write": true
-    },
-    "events": {
-      ".indexOn": ["status", "creatorAddress", "createdAt"],
-      ".read": true,
-      ".write": true
-    },
-    "attestations": {
-      ".read": true,
-      ".write": true
-    },
     "escrows": {
-      "$matchId": {
-        ".read": true,
-        ".write": true
+      "$escrowId": {
+        ".read": "auth != null || true",
+        ".write": "auth != null || true",
+        ".validate": "newData.hasChildren(['covenant_id', 'tx_hash']) && newData.child('covenant_id').val().length >= 64",
+        "players": {
+          "$playerAddress": {
+            ".validate": "newData.hasChildren(['joined','ts'])"
+          }
+        }
       }
     },
-    "walletstats": {
+    "results": {
       ".read": true,
-      ".write": true
+      ".write": "auth != null"
     },
-    "gamechain": {
-      ".read": true,
-      ".write": true
-    },
-    "settlements": {
-      ".read": true,
-      ".write": true
-    },
-    "settlement_requests": {
-      ".read": true,
-      ".write": true
-    },
-    "balances": {
-      ".read": true,
-      ".write": true
-    },
-    "bets": {
-      ".indexOn": ["eventId", "userAddress", "outcome"],
-      ".read": true,
-      ".write": true
-    },
-    "watcher": {
-      ".read": true,
-      ".write": true
-    }
+    ".write": "auth != null || root.child('allowPublic').val() === true",
+    ".read": "auth != null || true"
   }
 }
