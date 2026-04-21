@@ -37,18 +37,53 @@
     var totalPool = (market.totalPool || 0);
     var outcomeCount = market.outcomes ? market.outcomes.length : 0;
     var isExpanded = expandedMarket === id;
+    var hasMaximizer = market.maximizerLimitPct && market.maximizerLimitPct > 0;
+    var showCovenantId = market.covenantId ? true : false;
 
-    var html = '<div class="market-card' + (isExpanded ? ' expanded' : '') + '" data-market-id="' + id + '">';
-    html += '<div class="market-card-header" onclick="window.htpToggleMarket(\'' + id + '\')">';
-    html += '<div class="market-card-title">' + (market.title || 'Untitled') + '</div>';
-    html += '<div class="market-card-meta">';
-    html += '<span class="market-meta-item">By ' + truncateAddr(market.creatorAddress) + '</span>';
-    html += '<span class="market-meta-item">' + totalPool.toFixed(2) + ' KAS pool</span>';
-    html += '<span class="market-meta-item">' + outcomeCount + ' outcomes</span>';
-    html += '<span class="market-meta-item">Resolves ' + timeUntil(market.resolutionDate) + '</span>';
-    html += '</div>';
-    html += '</div>';
+    var html = 'u003cdiv class="market-card' + (isExpanded ? ' expanded' : '') + '" data-market-id="' + id + '"' + (hasMaximizer ? ' data-maximizer="true"' : '') + 'u003e';
+    html += 'u003cdiv class="market-card-header" onclick="window.htpToggleMarket(\'' + id + '\')"u003e';
+    html += 'u003cdiv class="market-card-title"u003e' + (market.title || 'Untitled');
+    if (hasMaximizer) {
+      html += ' u003cspan class="htp-maximizer-badge"u003eMaximizer ⚡u003c/spanu003e';
+    }
+    html += 'u003c/divu003e';
+    html += 'u003cdiv class="market-card-meta"u003e';
+    html += 'u003cspan class="market-meta-item"u003eBy ' + truncateAddr(market.creatorAddress) + 'u003c/spanu003e';
+    html += 'u003cspan class="market-meta-item"u003e' + totalPool.toFixed(2) + ' KAS poolu003c/spanu003e';
+    html += 'u003cspan class="market-meta-item"u003e' + outcomeCount + ' outcomesu003c/spanu003e';
+    if (market.maximizerLimitPct && market.maximizerLimitPct > 0) {
+      html += 'u003cspan class="market-meta-item"u003e' + market.maximizerLimitPct + '% max capu003c/spanu003e';
+    }
+    if (market.expectedVolume && market.expectedVolume > 0) {
+      html += 'u003cspan class="market-meta-item"u003e' + market.expectedVolume + ' exp. volu003c/spanu003e';
+    }
+    html += 'u003cspan class="market-meta-item"u003eResolves ' + timeUntil(market.resolutionDate) + 'u003c/spanu003e';
+    html += 'u003c/divu003e';
 
+    // Covenant ID display
+    if (market.covenantId) {
+      html += 'u003cdiv class="market-covenant"u003e';
+      html += 'Covenant ID: ' + market.covenantId + 'u003cbr>u003csmall>Hedge UTXO covenant-locked address</small>';
+      html += 'u003c/divu003e';
+    }
+
+    // Live progress bar for creator events (used/cap)
+    if (market.maximizerLimitPct && market.maximizerLimitPct > 0 && market.expectedVolume > 0) {
+      var maxCap = market.expectedVolume * (market.maximizerLimitPct/100);
+      var used = market.totalMaximizerVolume || market.totalPool || 0;
+      var progressPct = maxCap > 0 ? Math.min(100, (used / maxCap) * 100) : 0;
+      html += 'u003cdiv class="htp-progress-bar-wrap" style="margin-top:10px;"u003e';
+      html += 'u003cdiv class="htp-progress-bar-label"u003e';
+      html += 'u003cspan>Maximizer Usage</span>';
+      html += 'u003cspan>' + used.toFixed(0) + ' / ' + maxCap.toFixed(0) + ' KAS (' + progressPct.toFixed(1) + '%)u003c/span>';
+      html += 'u003c/divu003e';
+      html += 'u003cdiv class="htp-progress-bar-track"u003e';
+      html += 'u003cdiv class="htp-progress-bar-fill" style="width:' + progressPct + '%"u003eu003c/divu003e';
+      html += 'u003c/divu003e';
+      html += 'u003c/divu003e';
+    }
+
+    html += 'u003c/divu003e';
     if (isExpanded) {
       html += renderExpandedMarket(market);
     }
@@ -58,7 +93,15 @@
   }
 
   function renderExpandedMarket(market) {
-    var html = '<div class="market-card-body">';
+    var html = 'u003cdiv class="market-card-body"u003e';
+
+    // Covenant ID in expanded view
+    if (market.covenantId) {
+      html += 'u003cdiv class="market-covenant-expanded" style="margin-bottom:15px;padding:10px;background:rgba(73,232,194,0.1);border-radius:8px;"u003e';
+      html += 'u003cstrong style="color:#49e8c2;"u003eCovenant ID:u003c/strong> u003ccode>' + market.covenantId + 'u003c/code>';
+      html += 'u003cbr>u003csmall>Hedge UTXO is covenant-locked at this address</small>';
+      html += 'u003c/divu003e';
+    }
 
     // Description
     if (market.description) {

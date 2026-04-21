@@ -25,6 +25,9 @@
     var date = document.getElementById('event-resolution-date');
     var url = document.getElementById('event-source-url');
     var minPos = document.getElementById('event-min-position');
+    var expectedVol = document.getElementById('event-expected-volume');
+    var maxPct = document.getElementById('event-maximizer-limit-pct');
+    var oracleAddr = document.getElementById('event-oracle-address');
 
     if (!title || !title.value.trim()) errors.push('Event title is required');
     if (!desc || !desc.value.trim()) errors.push('Description is required');
@@ -42,11 +45,34 @@
       errors.push('Source URL must be a valid URL');
     }
 
+    // Validate outcomes
     var outcomes = [];
     document.querySelectorAll('.outcome-input').forEach(function(inp) {
       if (inp.value.trim()) outcomes.push(inp.value.trim());
     });
     if (outcomes.length < 2) errors.push('At least 2 outcomes are required');
+
+    // Validate expected volume
+    if (expectedVol && expectedVol.value) {
+      var vol = parseFloat(expectedVol.value);
+      if (isNaN(vol) || vol < 0) errors.push('Expected volume must be a positive number');
+    }
+
+    // Validate maximizer limit percentage
+    if (maxPct && maxPct.value) {
+      var pct = parseFloat(maxPct.value);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        errors.push('Maximizer limit percentage must be between 0 and 100');
+      }
+    }
+
+    // Validate oracle address format (optional)
+    if (oracleAddr && oracleAddr.value) {
+      var addr = oracleAddr.value.trim();
+      if (addr.length < 10 || addr.indexOf(':') === -1) {
+        errors.push('Oracle address must be in format address:index');
+      }
+    }
 
     return { errors: errors, outcomes: outcomes };
   }
@@ -60,6 +86,15 @@
   }
 
   W.createPredictionEvent = function() {
+    // Pre-flight fee calculation based on expected inputs
+    var expectedVol = parseFloat(document.getElementById('event-expected-volume').value) || 0;
+    var maxPct = parseFloat(document.getElementById('event-maximizer-limit-pct').value) || 0;
+    
+    if (expectedVol > 0 && maxPct > 0) {
+      const potentialFee = (expectedVol * 0.02) + (expectedVol * (maxPct/100) * 0.3);
+      if (W.showToast) W.showToast('Estimated total fees: ' + potentialFee.toFixed(2) + ' KAS based on expected volume', 'info');
+    }
+
     var addr = getConnectedAddress();
     if (!addr) {
       if (W.openWalletModal) W.openWalletModal();
@@ -161,4 +196,27 @@
   };
 
   console.log('[HTP EventCreator] loaded');
+
+  // Fee preview helper - can be called on input change for live preview
+  W.previewEventFees = function() {
+    var expectedVol = parseFloat(document.getElementById('event-expected-volume').value) || 0;
+    var maxPct = parseFloat(document.getElementById('event-maximizer-limit-pct').value) || 0;
+    
+    if (expectedVol > 0) {
+      const regularFees = expectedVol * 0.02;
+      const maxFees = expectedVol * (maxPct/100) * 0.3;
+      const totalFees = regularFees + maxFees;
+      
+      // Update fee preview element if it exists
+      var feePreview = document.getElementById('event-fee-preview');
+      if (feePreview) {
+        feePreview.innerHTML = `
+          <small><strong>Fee Preview:</strong> ${totalFees.toFixed(2)} KAS total<br></small>
+          <small>2% regular (${regularFees.toFixed(2)} KAS) + 30% maximizer cut (${maxFees.toFixed(2)} KAS)</small>
+        `;
+      }
+      return totalFees;
+    }
+    return 0;
+  };
 })(window);

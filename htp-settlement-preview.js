@@ -2,6 +2,7 @@
  * htp-settlement-preview.js
  * Pre-TX confirmation modal: shows winner, fee, treasury before any TX fires.
  * Intercepts settleMatchPayout and settleSkillMatch — wraps them with preview gate.
+ * Also handles result modal after settlement with clickable TX hash.
  * Depends on: htp-fee-engine.js, htp-covenant-escrow-v2.js, htp-settlement-overlay.js
  */
 (function(W) {
@@ -74,11 +75,38 @@
   /**
    * Show a result overlay after settlement completes.
    * Listens for htp:settlement:complete and displays win/lose/draw overlay.
+   * Shows winner, pot, fee, net payout, and TX hash with clickable link.
    */
   function listenForResults() {
     window.addEventListener('htp:settlement:complete', function(e) {
-      const { matchId, txId, winner, isDraw, stakeKas, isMaximizer, betKas, odds } = e.detail || {};
+      const { matchId, txId, winner, isDraw, stakeKas, isMaximizer, betKas, odds, feeKas, totalPot } = e.detail || {};
+      
+      // Calculate values if not provided
+      const totalPotKas = totalPot || (stakeKas ? stakeKas * 2 : 0);
+      const feeKasCalculated = feeKas || (totalPotKas ? totalPotKas * 0.025 : 0); // 2.5% platform fee
+      const netPayout = totalPotKas - feeKasCalculated;
+      
+      // Show enhanced result modal instead of just overlay
+      showResultModal({
+        matchId,
+        txId,
+        winner,
+        isDraw,
+        stakeKas,
+        isMaximizer,
+        betKas,
+        odds,
+        totalPot: totalPotKas,
+        fee: feeKasCalculated,
+        netPayout
+      });
+      
       if (!W.HTPSettlementOverlay) return;
+
+      const myAddress = W.walletAddress || W.htpAddress || W.connectedAddress;
+      let type = 'win';
+      if (isDraw) type = 'draw';
+      else if (winner && myAddress && winner !== myAddress) type = 'lose';
 
       const myAddress = W.walletAddress || W.htpAddress || W.connectedAddress;
       let type = 'win';
