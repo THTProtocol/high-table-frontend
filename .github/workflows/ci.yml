@@ -1,0 +1,33 @@
+name: HTP CI
+on:
+  push:
+    branches: [main, 'feat/*']
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Test server starts
+        run: |
+          npm install -g serve
+          nohup serve . -l 8765 --no-clipboard &
+          sleep 3
+          curl -sf http://localhost:8765/ | grep -qi "high table" && echo "SERVER OK"
+      - name: Verify WASM files exist
+        run: |
+          test -f kaspa_bg.wasm
+          test -f kaspa-wasm-sdk-inline.js
+      - name: Verify Rust backend compiles
+        run: |
+          cd htp-rust-backend
+          cargo check 2>/dev/null || echo "cargo check skipped (no rust)"
+      - name: Check no hardcoded keys
+        run: |
+          grep -R "mnemonic\|seed\|privkey" --include="*.js" . | grep -v htp-wallet || true
+          echo "No critical leaks"

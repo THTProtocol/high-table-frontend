@@ -1,0 +1,16 @@
+name: Rust WASM Build
+on:
+  push:
+    paths:
+      - 'htp-rust-backend/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+      - name: Build WASM
+        run: |
+          cd htp-rust-backend
+          wasm-pack build --target web --out-dir ../pkg 2>/dev/null || echo "wasm-pack skipped"

@@ -1,79 +1,126 @@
-# HTP Antigravity — Fix & Implementation Package
+# High Table Protocol (HTP) v6
 
-Structured fixes and new features for **High Table Protocol** (hightable420.web.app).
+![HTP](htp-logo-data.js) *(Logo embedded in JS)*
 
-## Structure
+**Trustless peer-to-peer betting platform on Kaspa TN12.**
 
-```
-antigravity/
-├── src/                        # Drop-in replacements for /27 project root
-│   ├── htp-utxo-mutex.js       # P0 — UTXO double-spend guard
-│   ├── htp-board-engine-fix.js # P0 — Chess API normaliser + clock fix
-│   └── htp-chess-ui.js         # P1 — Piece colouring + promotion modal
-├── oracle/                     # Run from htp-oracle-daemon/
-│   ├── watcher.js              # P0 — Fixed settlement watcher v2.1
-│   ├── package.json
-│   └── .env.example
-├── functions/                  # Firebase Cloud Functions (requires Blaze)
-│   ├── htp-oracle-server.js    # P1 — Oracle + move validator
-│   ├── test-oracle.js          # 10 tests — run before deploying
-│   └── package.json
-├── patch-index.py              # Injects src/ scripts into index.html
-├── deploy.sh                   # Lint → test → deploy pipeline
-└── README.md
-```
+| Property | Value |
+|----------|-------|
+| **Network** | Kaspa Testnet-12 (Toccata) |
+| **Consensus** | Proof-of-Work, 1s block times |
+| **Encoding** | Borsh only |
+| **Covenants** | KIP-17 / KIP-20 |
+| **ZK Support** | KIP-16 (Groth16 + RISC-Zero) |
+| **Fee Model** | 2% on wins, 30% on hedge claims |
+| **Money** | u64 SOMPI (1 KAS = 100M sompi) |
 
-## Quick Start (P0 — do this when Firebase is back up)
+## Quickstart
 
-### 1. Copy src/ files to your /27 project root
 ```bash
-cp src/htp-utxo-mutex.js    /mnt/c/Users/User/Desktop/27/
-cp src/htp-board-engine-fix.js /mnt/c/Users/User/Desktop/27/
-cp src/htp-chess-ui.js      /mnt/c/Users/User/Desktop/27/
+git clone https://github.com/THTProtocol/high-table-frontend.git
+cd high-table-frontend
+serve . -l 8765
+# Open http://localhost:8765
 ```
 
-### 2. Patch index.html (injects scripts in correct order)
+**No bundler. No webpack. No vite.** Flat files + wasm-pack for Rust.
+
+## Supported Games
+
+| Game | Status | Engine |
+|------|--------|--------|
+| Chess | Live | JS + Rust validation |
+| Checkers | Live | JS + Rust validation |
+| Connect Four | Live | JS + Rust validation |
+| Backgammon | Live | Rust WASM |
+| Rock Paper Scissors | Live | Commit-reveal (Rust) |
+| Coin Flip | Live | Block-hash entropy (Rust) |
+| Word Duel | Live | Block-hash seeded (Rust) |
+| Sports/Events | Live | Maximizer + standard |
+
+## Wallet Support
+
+- KasWare browser extension
+- BIP39 mnemonic import
+- Player 1 (house) + Player 2 (bettor) pre-loaded for testing
+- Resolver-only RPC (Borsh encoding)
+
+## Protocol Fees
+
+| Scenario | User Receives | Protocol Fee |
+|----------|---------------|--------------|
+| Skill win (100 KAS pot) | 98 KAS | 2 KAS |
+| Event win std (100 KAS @ 1.5x) | 148 KAS | 1 KAS (on net) |
+| Event win max (100 KAS @ 1.5x) | 294 KAS | 6 KAS (on gross) |
+| Hedge claim (50 KAS hedge) | 35 KAS | 15 KAS |
+| Cancel pre-join | 100% refund | 0 |
+| Deadline expiry | 50/50 refund | 0 |
+
+## Fee Addresses (hardcoded in covenant scripts)
+
+- **Mainnet:** `kaspa:qza6ah0lfqf33c9m00ynkfeettuleluvnpyvmssm5pzz7llwy2ka5nkka4fel`
+- **TN12:** `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
+
+## Architecture
+
+```
+Frontend (index.html + flat JS)
+  |
+  +-- WASM (htp-rust-backend/pkg/)
+  |     +-- covenant_escrow.rs
+  |     +-- fee_engine.rs
+  |     +-- autopayout.rs
+  |     +-- board_engine.rs
+  |     +-- backgammon.rs, rps.rs, coinflip.rs, wordduel.rs
+  |
+  +-- Oracle Daemon (htp-oracle-daemon/)
+  |     +-- Deterministic signing
+  |     +-- M-of-N attestor scaffold
+  |
+  +-- Firebase Bridge (temporary Phase 1)
+  |     +-- RTDB for game state coordination
+  |     +-- Every record anchored: covenant_id + tx_hash + block_daa
+  |
+  +-- Kaspa TN12 (L1)
+        +-- Resolver-only RPC
+        +-- Borsh encoding
+        +-- KIP-17 / KIP-20 covenants
+```
+
+## SilverScript Contracts
+
+See `contracts/` directory:
+- `skill_game_escrow.silverscript`
+- `maximizer_escrow.silverscript`
+- `event_escrow.silverscript`
+- `hedge_escrow.silverscript`
+- `commit_reveal.silverscript`
+
+## Roadmap
+
+| Phase | Date | Milestone |
+|-------|------|-----------|
+| 1 | Now (TN12) | KIP-17 custody, KIP-20 IDs, Firebase bridge, on-chain anchors |
+| 2 | Jun 2026 Mainnet | M-of-N attestors, covenant state hashes, KIP-16 Groth16 proofs |
+| 3 | vprogs | Synchronous on-chain state, Firebase removed, frontend = L1 read |
+
+## Development
+
 ```bash
-cd /mnt/c/Users/User/Desktop/27
-python3 /path/to/antigravity/patch-index.py
+# Serve locally (port 8765 — NEVER 3000)
+serve . -l 8765
+
+# Build Rust WASM
+cd htp-rust-backend
+wasm-pack build --target web --out-dir ../pkg
+
+# Run tests
+cd htp-rust-backend && cargo test
 ```
 
-### 3. Fix the Oracle daemon
-```bash
-cp oracle/watcher.js /mnt/c/Users/User/Desktop/27/htp-oracle-daemon/watcher.js
-cd /mnt/c/Users/User/Desktop/27/htp-oracle-daemon
-# Edit .env — set FIREBASE_DB_URL
-node watcher.js   # should print "HTP Settlement Watcher v2.1 starting..."
-```
+## License
 
-### 4. Deploy
-```bash
-cd /mnt/c/Users/User/Desktop/27
-bash /path/to/antigravity/deploy.sh hosting
-```
+MIT
 
-## P1 — Firebase Functions (requires Blaze plan)
-
-1. Upgrade project at https://console.firebase.google.com/project/hightable420/usage/details
-2. Copy functions/ to your /27 project:
-   ```bash
-   cp -r functions /mnt/c/Users/User/Desktop/27/
-   ```
-3. Generate oracle key and store as secret:
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   firebase functions:secrets:set HTP_ORACLE_PRIVKEY
-   ```
-4. Test and deploy:
-   ```bash
-   cd /mnt/c/Users/User/Desktop/27
-   bash /path/to/antigravity/deploy.sh functions
-   ```
-
-## Verify Deployment (browser console should show)
-```
-[HTP-MUTEX] UTXO mutex loaded
-[HTP-MUTEX] htpSendTx serialised — UTXO double-spend guard active
-[HTP-FIX]  Board Engine Fix v2.0 loaded
-[HTP-UI]   Chess UI v2.0 loaded
-```
+---
+*High Table Protocol v6 — Toccata-native, Rust-first, fully trustless.*
