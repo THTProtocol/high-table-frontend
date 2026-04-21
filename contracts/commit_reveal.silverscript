@@ -1,0 +1,267 @@
+pragma silverscript ^0.1.0;
+
+/**
+ * COMMIT-REVEAL ESCROW
+ * ====================
+ * Commit-reveal pattern for RPS/coinflip with salt>=32 bytes
+ * Prevents front-running and ensures verifiable randomness
+ * 
+ * Constructor args:
+ * @param player1Hash: bytes32 - Hash of player1's commitment (move + salt)
+ * @param player2Hash: bytes32 - Hash of player2's commitment (move + salt)
+ * @param deadline: int - Block deadline for reveal phase
+ * @param revealDeadline: int - Block deadline specifically for reveal (must be before deadline)
+ * @param covenantId: bytes32 - KIP-20 covenant BLAKE2b hash
+ */
+contract CommitRevealEscrow(
+    bytes32 player1Hash,
+    bytes32 player2Hash,
+    int deadline,
+    int revealDeadline,
+    bytes32 covenantId
+) {
+    // Protocol fee addresses
+    bytes34 constant PROTOCOL_FEES_MAINNET = new LockingBytecodeP2PK(0x0305030303020303030304000500010308030405030007030308040900060809000300);
+    bytes34 constant PROTOCOL_FEES_TN12 = new LockingBytecodeP2PK(0x0303030308040403000504000808030801070704000901070300030302070700030401030801);
+    
+    // Minimum salt length validation
+    int constant MIN_SALT_LENGTH = 32;
+    int constant PROTOCOL_FEE_PERCENT = 2;
+    
+    // Reveal deadline must be before main deadline
+    require(revealDeadline < deadline, "Reveal deadline must precede main deadline");
+
+    /**
+     * PHASE 1: COMMIT
+     * Players submit hashed moves in advance
+     * Hash = blake2b(move || salt) where salt >= 32 bytes
+     */
+
+    /**
+     * PHASE 2: REVEAL
+     * Players reveal their moves and salts
+     * Verification that hash matches commitment
+     */
+    entrypoint function revealAndSettle(
+        bytes32 gameId,
+        bytes player1Move,
+        bytes player1Salt,
+        bytes player2Move,
+        bytes player2Salt,
+        bytes64 player1Sig,
+        bytes64 player2Sig,
+        bool isPlayer1Mainnet,
+        bool isPlayer2Mainnet
+    ) {
+        // Must be within reveal window
+        require(tx.time < revealDeadline, "Reveal window closed");
+        
+        // Validate salt lengths (must be >= 32 bytes)
+        require(player1Salt.length >= MIN_SALT_LENGTH, "Player1 salt too short");
+        require(player2Salt.length >= MIN_SALT_LENGTH, "Player2 salt too short");
+        
+        // Reconstruct and verify player1's commitment
+        bytes player1Combined = player1Move + player1Salt;
+        require(blake2b(player1Combined) == player1Hash, "Player1 commitment mismatch");
+        
+        // Reconstruct and verify player2's commitment  
+        bytes player2Combined = player2Move + player2Salt;
+        require(blake2b(player2Combined) == player2Hash, "Player2 commitment mismatch");
+        
+        // Verify signatures from both players
+        require(checkSig(player1Sig, msg.sender1), "Invalid player1 signature");
+        require(checkSig(player2Sig, msg.sender2), "Invalid player2 signature");
+        
+        // Calculate game result
+        int result = determineWinner(player1Move, player2Move);
+        
+        // Calculate payout amounts
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        int protocolFee = (inputValue * PROTOCOL_FEE_PERCENT) / 100;
+        int payoutAmount = inputValue - protocolFee;
+        
+        if (result == 1) {
+            // Player 1 wins
+            bytes34 winner1Lock = new LockingBytecodeP2PK(msg.sender1);
+            require(tx.outputs[0].lockingBytecode == winner1Lock, "Output0: Player1 wins");
+            require(tx.outputs[0].value >= payoutAmount, "Winner must receive payout");
+        } else if (result == 2) {
+            // Player 2 wins
+            bytes34 winner2Lock = new LockingBytecodeP2PK(msg.sender2);
+            require(tx.outputs[0].lockingBytecode == winner2Lock, "Output0: Player2 wins");
+            require(tx.outputs[0].value >= payoutAmount, "Winner must receive payout");
+        } else {
+            // Draw - split funds
+            int halfPayout = payoutAmount / 2;
+            bytes34 p1Lock = new LockingBytecodeP2PK(msg.sender1);
+            bytes34 p2Lock = new LockingBytecodeP2PK(msg.sender2);
+            
+            require(tx.outputs[0].lockingBytecode == p1Lock, "Output0: Player1 draw");
+            require(tx.outputs[0].value >= halfPayout, "Player1 draw amount");
+            require(tx.outputs[1].lockingBytecode == p2Lock, "Output1: Player2 draw");
+            require(tx.outputs[1].value >= halfPayout, "Player2 draw amount");
+        }
+        
+        // Protocol fee
+        if (protocolFee > 0) {
+            bytes34 feeLock = isPlayer1Mainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            int feeIndex = (result == 0) ? 2 : 1; // After draw payouts or winner payout
+            require(tx.outputs[feeIndex].lockingBytecode == feeLock, "Fee must go to protocol");
+            require(tx.outputs[feeIndex].value >= protocolFee, "Fee amount");
+        }
+    }
+    
+    entrypoint function forfeitByNonReveal(
+        bytes32 gameId,
+        bytes revealedMove,
+        bytes revealedSalt,
+        bytes64 revealedSig,
+        bytes32 forfeiterKey,
+        bool isMainnet
+    ) {
+        // Reveal deadline passed, one player didn't reveal
+        require(tx.time >= revealDeadline, "Reveal deadline not passed");
+        require(tx.time < deadline, "Main deadline passed");
+        
+        // Verify the revealed player's commitment
+        require(revealedSalt.length >= MIN_SALT_LENGTH, "Salt too short");
+        bytes combined = revealedMove + revealedSalt;
+        
+        // Check which player revealed
+        bool isPlayer1 = (blake2b(combined) == player1Hash);
+        bool isPlayer2 = (blake2b(combined) == player2Hash);
+        require(isPlayer1 || isPlayer2, "Revealer not a valid player");
+        
+        // Check the forfeiter properly
+        if (isPlayer1) {
+            require(forfeiterKey == player2Hash, "Player1 must accuse Player2");
+        } else {
+            require(forfeiterKey == player1Hash, "Player2 must accuse Player1");
+        }
+        
+        require(checkSig(revealedSig, msg.sender), "Invalid revealer signature");
+        
+        // Revealer wins - takes full pot minus fee
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        int protocolFee = (inputValue * PROTOCOL_FEE_PERCENT) / 100;
+        int winnerPayout = inputValue - protocolFee;
+        
+        // Winner output
+        bytes34 winnerLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == winnerLock, "Winner output");
+        require(tx.outputs[0].value >= winnerPayout, "Winner gets forfeited pot");
+        
+        // Fee output
+        if (protocolFee > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Fee output");
+            require(tx.outputs[1].value >= protocolFee, "Fee amount");
+        }
+    }
+    
+    entrypoint function bothForfeitRefund(
+        bytes32 gameId,
+        bytes64 p1Sig,
+        bytes64 p2Sig
+    ) {
+        // Both players failed to reveal by main deadline
+        require(tx.time >= deadline, "Deadline not passed");
+        
+        // Both signatures required for mutual refund
+        require(checkSig(p1Sig, msg.sender1), "Player1 signature required");
+        require(checkSig(p2Sig, msg.sender2), "Player2 signature required");
+        
+        // Calculate refund amounts (subtract miner fees)
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        int refundPerPlayer = (inputValue - 2000) / 2; // 2000 sats for fees
+        
+        // Refund both players
+        bytes34 p1Lock = new LockingBytecodeP2PK(msg.sender1);
+        bytes34 p2Lock = new LockingBytecodeP2PK(msg.sender2);
+        
+        require(tx.outputs[0].lockingBytecode == p1Lock, "Output0: Player1 refund");
+        require(tx.outputs[0].value >= refundPerPlayer, "Player1 refund amount");
+        require(tx.outputs[1].lockingBytecode == p2Lock, "Output1: Player2 refund");
+        require(tx.outputs[1].value >= refundPerPlayer, "Player2 refund amount");
+    }
+    
+    entrypoint function unilateralRefund(
+        bytes32 gameId,
+        bytes32 refundKey,
+        bytes64 refundSig
+    ) {
+        // If only one player committed, they can refund after deadline
+        require(tx.time >= deadline + (86400 * 3), "Must wait 3 days post-deadline");
+        
+        // Verify refund key matches one of the committed players
+        require(
+            refundKey == player1Hash || refundKey == player2Hash,
+            "Refund key must match committed player"
+        );
+        
+        require(checkSig(refundSig, refundKey), "Invalid refund signature");
+        
+        // Refund to claiming player
+        int refundAmount = tx.inputs[this.activeInputIndex].value;
+        bytes34 refundLock = new LockingBytecodeP2PK(refundKey);
+        
+        require(tx.outputs[0].lockingBytecode == refundLock, "Refund output");
+        require(tx.outputs[0].value >= refundAmount - 1000, "Refund minus fees");
+    }
+    
+    entrypoint function protocolCleanup(
+        bytes32 gameId,
+        bytes64 cleanupAuth,
+        bool isMainnet
+    ) {
+        // Protocol can claim dormant funds after extended timeout
+        require(
+            tx.time >= deadline + (86400 * 30), // 30 days grace period
+            "Cleanup grace period not expired"
+        );
+        
+        // Authorization check
+        require(
+            blake2b(cleanupAuth) == covenantId,
+            "Not authorized for cleanup"
+        );
+        
+        // Transfer dormant funds to protocol
+        int cleanupAmount = tx.inputs[this.activeInputIndex].value;
+        bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+        
+        require(tx.outputs[0].lockingBytecode == feeLock, "Cleanup to protocol");
+        require(tx.outputs[0].value >= cleanupAmount - 1000, "Cleanup amount");
+    }
+    
+    // Helper function to determine RPS winner (Rock=0, Paper=1, Scissors=2)
+    // Returns: 0=draw, 1=player1 wins, 2=player2 wins
+    function determineWinner(bytes move1, bytes move2): (int) {
+        // Parse moves - support byte[0], byte[1], byte[2] encoding
+        int m1 = int(move1[0]) % 3;
+        int m2 = int(move2[0]) % 3;
+        
+        if (m1 == m2) {
+            return 0; // Draw
+        }
+        
+        // Rock(0) beats Scissors(2), Scissors(2) beats Paper(1), Paper(1) beats Rock(0)
+        if ((m1 == 0 && m2 == 2) ||
+            (m1 == 2 && m2 == 1) || 
+            (m1 == 1 && m2 == 0)) {
+            return 1; // Player 1 wins
+        }
+        
+        return 2; // Player 2 wins
+    }
+}
+
+/**
+ * RPS Game Constants for reference:
+ * ROCK = 0x00     (Salt hash prefix)
+ * PAPER = 0x01    (Salt hash prefix)
+ * SCISSORS = 0x02 (Salt hash prefix)
+ * 
+ * Move format: [move_byte || salt_bytes(32+)]
+ * Example: 0x00 || 0x1234... (32+ random bytes)
+ */

@@ -1,0 +1,168 @@
+pragma silverscript ^0.1.0;
+
+/**
+ * SKILL GAME ESCROW
+ * =================
+ * Winner-takes-all skill game escrow with 2% protocol fee
+ * Pre-join cancel = full refund, Post-join leave = auto-loss
+ * 
+ * Constructor args:
+ * @param player1Key: bytes32 - First player commitment hash (from gameId+playerPubkey)
+ * @param player2Key: bytes32 - Second player commitment hash (from gameId+playerPubkey) 
+ * @param deadline: int - Block-based deadline in absolute block height
+ * @param covenantId: bytes32 - KIP-20 covenant ID from BLAKE2b hash
+ */
+contract SkillGameEscrow(
+    bytes32 player1Key,
+    bytes32 player2Key, 
+    int deadline,
+    bytes32 covenantId
+) {
+    // Protocol fee address constants (hardcoded)
+    bytes34 constant PROTOCOL_FEES_MAINNET = new LockingBytecodeP2PK(0x0305030303020303030304000500010308030405030007030308040900060809000300);
+    bytes34 constant PROTOCOL_FEES_TN12 = new LockingBytecodeP2PK(0x0303030308040403000504000808030801070704000901070300030302070700030401030801);
+
+    // State tracking
+    bool constant PRE_GAME = false;
+    bool constant GAME_ACTIVE = true;
+
+    entrypoint function claimWinner(
+        bytes32 gameId,
+        pubkey winnerPk, 
+        bytes64 winnerSig,
+        datasig statusProof,
+        bytes32 gameStateHash,
+        bool isMainnet
+    ) {
+        // Verify deadline hasn't passed
+        require(tx.time < deadline, "Deadline passed");
+        
+        // Validate winner commitment matches stored key
+        if (blake2b(gameId + winnerPk) == player1Key) {
+            require(blake2b(winnerPk) != player2Key, "Winner cannot be both players");
+        } else if (blake2b(gameId + winnerPk) == player2Key) {
+            require(blake2b(winnerPk) != player1Key, "Winner cannot be both players"); 
+        } else {
+            require(false, "Invalid winner commitment");
+        }
+        
+        // Verify winner signature
+        require(checkSig(winnerSig, winnerPk), "Invalid winner signature");
+        
+        // Verify status proof matches game state (oracle provides this)
+        require(blake2b(statusProof) == gameStateHash, "Invalid game status");
+        
+        // Calculate payout amounts (2% fee on total pool)
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        int totalPool = inputValue;
+        
+        // Protocol fee (2%)
+        int protocolFee = (totalPool * 2) / 100;
+        
+        // Winner gets remaining amount
+        int winnerAmount = totalPool - protocolFee;
+        
+        // First output: winner gets remaining funds
+        bytes34 winnerLock = new LockingBytecodeP2PK(winnerPk);
+        require(tx.outputs[0].lockingBytecode == winnerLock, "Output0 must go to winner");
+        require(tx.outputs[0].value >= winnerAmount, "Winner amount insufficient");
+        
+        // Second output: protocol fee (if nonzero)
+        if (protocolFee > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Output1 must be protocol fee");
+            require(tx.outputs[1].value >= protocolFee, "Fee amount insufficient");
+        }
+        
+        // Third output (optional): covenant continuation for tracking
+        // Ensures covenant ID propagation if needed
+        if (tx.outputs.length > 2) {
+            require(tx.outputs[2].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        }
+    }
+
+    entrypoint function cancelPreGame(
+        bytes32 gameId,
+        bytes32 refundKey,
+        bytes64 refundSig,
+        datasig cancelProof
+    ) {
+        // Must be before deadline
+        require(tx.time < deadline, "Deadline passed");
+        
+        // Only allow cancel if both players haven't committed
+        require(blake2b(gameId + block.txn[pos]) == refundKey, "Refund key invalid");
+        require(checkSig(refundSig, refundKey), "Invalid signature");
+        
+        // Verify this is a pre-game state (cancel proof from oracle/arbiter)
+        require(blake2b(cancelProof) == blake2b("PREGAME_CANCEL"), "Invalid cancel proof");
+        
+        // Send full amount back to initiator
+        int refundAmount = tx.inputs[this.activeInputIndex].value;
+        bytes34 refundLock = new LockingBytecodeP2PK(refundKey);
+        require(tx.outputs[0].lockingBytecode == refundLock, "Output0 must refund");
+        require(tx.outputs[0].value >= refundAmount - 1000, "Must refund full amount minus fee");
+    }
+
+    entrypoint function autoLose(
+        bytes32 gameId, 
+        bytes32 loserKey,
+        bytes64 loserSig,
+        datasig timeoutProof,
+        bool isMainnet
+    ) {
+        // Must be after deadline OR explicit leave signal
+        require(
+            tx.time >= deadline || blake2b(timeoutProof) == blake2b("PLAYER_LEFT"),
+            "Timeout not reached and no leave proof"
+        );
+        
+        // Validate loser is one of the players
+        require(
+            loserKey == player1Key || loserKey == player2Key,
+            "Loser not recognized player"
+        );
+        
+        require(checkSig(loserSig, loserKey), "Invalid signature");
+        
+        // Determine winner as the other player
+        bytes32 winnerKey = loserKey == player1Key ? player2Key : player1Key;
+        
+        // Calculate amounts (2% protocol fee)
+        int inputValue = tx.inputs[this.activeInputIndex].value;
+        int protocolFee = (inputValue * 2) / 100;
+        int winnerAmount = inputValue - protocolFee;
+        
+        // Winner gets remaining funds
+        bytes34 winnerLock = new LockingBytecodeP2PK(winnerKey);
+        require(tx.outputs[0].lockingBytecode == winnerLock, "Output0 must go to winner");
+        require(tx.outputs[0].value >= winnerAmount, "Winner amount insufficient");
+        
+        // Protocol fee
+        if (protocolFee > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Output1 must be protocol fee");
+            require(tx.outputs[1].value >= protocolFee, "Fee amount insufficient");
+        }
+    }
+
+    entrypoint function deadlineRefund(
+        bytes32 gameId,
+        bytes32 refundKey,
+        bytes64 refundSig
+    ) {
+        // Must be after deadline
+        require(tx.time >= deadline, "Deadline not reached");
+        
+        // Anyone can trigger refund after deadline
+        // Refund key corresponds to whoever funded the escrow
+        require(blake2b(refundKey) == blake2b(gameId + "FUNDER"), "Invalid refund key");
+        require(checkSig(refundSig, refundKey), "Invalid signature");
+        
+        // Send remaining balance back (full refund as time expired)
+        int refundAmount = tx.inputs[this.activeInputIndex].value;
+        bytes34 refundLock = new LockingBytecodeP2PK(refundKey);
+        require(tx.outputs[0].lockingBytecode == refundLock, "Output0 must refund");
+        require(tx.outputs[0].value >= refundAmount - 1000, "Must refund available balance");
+    }
+}

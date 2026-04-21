@@ -1,0 +1,159 @@
+pragma silverscript ^0.1.0;
+
+/**
+ * EVENT ESCROW
+ * ============
+ * Standard event betting with odds, 2% fee on win
+ * Deadline refund + cancel refund paths
+ * Supports multiple outcomes (odds-based betting)
+ * 
+ * Constructor args:
+ * @param eventId: bytes32 - Unique event identifier
+ * @param oracleKey: pubkey - Oracle public key for validating outcomes
+ * @param oddsNumerator: int - Winning payout ratio numerator
+ * @param oddsDenominator: int - Winning payout ratio denominator  
+ * @param deadline: int - Block-based settlement deadline
+ * @param covenantId: bytes32 - KIP-20 covenant BLAKE2b tracking hash
+ */
+contract EventEscrow(
+    bytes32 eventId,
+    pubkey oracleKey,
+    int oddsNumerator,
+    int oddsDenominator,
+    int deadline,
+    bytes32 covenantId
+) {
+    // Protocol fee addresses
+    bytes34 constant PROTOCOL_FEES_MAINNET = new LockingBytecodeP2PK(0x0305030303020303030304000500010308030405030007030308040900060809000300);
+    bytes34 constant PROTOCOL_FEES_TN12 = new LockingBytecodeP2PK(0x0303030308040403000504000808030801070704000901070300030302070700030401030801);
+    
+    // Fee constants
+    int constant PROTOCOL_FEE_PERCENT = 2;  // 2% on win
+    int constant MIN_BET_SOMPI = 1000000;   // Minimum bet 1 KAS
+    
+    // Restrictions
+    require(oddsDenominator > 0, "Odds denominator must be positive");
+    require(oddsNumerator >= oddsDenominator, "Odds must be >= 1.0");
+    
+    entrypoint function claimWin(
+        bytes32 winningBetId,
+        int betAmount,
+        bytes64 bettorSig,
+        datasig oracleProof,
+        bytes32 outcomeHash,
+        bool isMainnet
+    ) {
+        // Deadline check
+        require(tx.time < deadline, "Event deadline passed");
+        
+        // Verify minimum bet
+        require(betAmount >= MIN_BET_SOMPI, "Bet below minimum");
+        require(tx.inputs[this.activeInputIndex].value >= betAmount, "Insufficient input value");
+        
+        // Verify oracle signature on outcome
+        require(checkDataSig(oracleProof, outcomeHash, oracleKey), "Invalid oracle signature");
+        require(blake2b(oracleProof) == blake2b(eventId + "WINNER:" + winningBetId), "Outcome mismatch");
+        
+        // Calculate payouts based on odds
+        // payout = betAmount * (oddsNumerator / oddsDenominator)
+        int grossWinAmount = (betAmount * oddsNumerator) / oddsDenominator;
+        
+        // Protocol fee (2% on net winnings only, not stake)
+        int netWinnings = grossWinAmount - betAmount;
+        int protocolFee = (netWinnings * PROTOCOL_FEE_PERCENT) / 100;
+        int finalPayout = grossWinAmount - protocolFee;
+        
+        // First output: gross winnings to bettor (minus fee)
+        require(checkSig(bettorSig, tx.outputs[0].lockingBytecode));
+        require(tx.outputs[0].value >= finalPayout, "Gross payout insufficient");
+        
+        // Second output: protocol fee to fee address
+        if (protocolFee > 0) {
+            bytes34 feeLock = isMainnet ? PROTOCOL_FEES_MAINNET : PROTOCOL_FEES_TN12;
+            require(tx.outputs[1].lockingBytecode == feeLock, "Fee must go to protocol");
+            require(tx.outputs[1].value >= protocolFee, "Fee amount insufficient");
+        }
+        
+        // Optional: track remaining pool
+        if (tx.outputs.length > 2) {
+            require(tx.outputs[2].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        }
+    }
+    
+    entrypoint function claimLoss(
+        bytes32 lossBetId,
+        int betAmount,
+        datasig oracleProof,
+        bytes32 outcomeHash
+    ) {
+        // Event ended and this bet lost - nothing to claim but closure proof
+        require(tx.time > deadline, "Event must be concluded");
+        
+        // Verify oracle confirmed this bet lost
+        require(checkDataSig(oracleProof, outcomeHash, oracleKey), "Invalid oracle signature");
+        require(blake2b(oracleProof) == blake2b(eventId + "LOSER:" + lossBetId), "Not a losing bet");
+        
+        // Loser gets 1 satoshi acknowledgement (protocol keeps bet stake)
+        // This is just a closure transaction - stakes already committed to pool
+        require(tx.outputs[0].value >= 1, "Loss acknowledgement required");
+    }
+    
+    entrypoint function cancelBet(
+        bytes32 betId,
+        int betAmount,
+        bytes64 bettorSig,
+        datasig cancelProof
+    ) {
+        // Must be before any outcome determined
+        require(tx.time < deadline - 7200, "Too close to deadline to cancel"); // -2 hours buffer
+        
+        // Verify cancellation authorized by oracle/event organizer
+        require(blake2b(cancelProof) == blake2b(eventId + ":CANCELLED:" + betId), "Invalid cancel proof");
+        require(checkDataSig(cancelProof, blake2b("CANCEL"), oracleKey), "Must be authorized cancellation");
+        
+        // Full refund of bet amount
+        bytes34 bettorLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == bettorLock, "Refund must go to bettor");
+        require(tx.outputs[0].value >= betAmount - 500, "Full refund minus minimal fee");
+    }
+    
+    entrypoint function deadlineRefund(
+        bytes32 betId,
+        int betAmount,
+        bytes64 bettorSig
+    ) {
+        // After deadline, anyone can claim their original stake back
+        // if no valid outcome was published
+        require(tx.time >= deadline, "Deadline not reached");
+        
+        // Verify bettor authorization
+        require(checkSig(bettorSig, msg.sender), "Invalid bettor signature");
+        
+        // Check this bet was part of event
+        require(blake2b(betId + msg.sender) == blake2b(eventId), "Invalid bet ID");
+        
+        // Full stake refund (no fee if event expired without resolution)
+        bytes34 bettorLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == bettorLock, "Refund to bettor");
+        require(tx.outputs[0].value >= betAmount - 1000, "Stake refund minus miner fee");
+    }
+    
+    entrypoint function eventCancelledRefund(
+        bytes32 betId,
+        int betAmount,
+        bytes64 bettorSig,
+        datasig cancelProof
+    ) {
+        // If event organizer cancels, all bets refunded
+        require(checkDataSig(cancelProof, blake2b(eventId + ":EVENT_CANCELLED"), oracleKey), "Event not cancelled");
+        
+        // Verify bet ownership
+        require(checkSig(bettorSig, msg.sender), "Invalid bettor signature");
+        require(blake2b(betId + msg.sender) == blake2b(eventId), "Bet mismatch");
+        
+        // Full refund including any fee
+        bytes34 bettorLock = new LockingBytecodeP2PK(msg.sender);
+        require(tx.outputs[0].lockingBytecode == bettorLock, "Refund to bettor");
+        require(tx.outputs[0].value >= betAmount, "Full bet refund");
+    }
+}
