@@ -86,12 +86,15 @@ impl BlackjackGame {
     pub fn deal(&mut self) {
         if self.state != BJState::WaitingForBet || self.bet_sompi == 0 { return; }
         self.player_hand.clear(); self.dealer_hand.clear();
-        self.player_hand.push(self.draw()); self.dealer_hand.push(self.draw());
-        self.player_hand.push(self.draw()); self.dealer_hand.push(self.draw());
+        let c1=self.draw(); self.player_hand.push(c1);
+        let c2=self.draw(); self.dealer_hand.push(c2);
+        let c3=self.draw(); self.player_hand.push(c3);
+        let c4=self.draw(); self.dealer_hand.push(c4);
         self.state = BJState::PlayerTurn;
         self.player_done = false;
         self.result = None;
-        if self.is_blackjack(&self.player_hand) {
+        let phlen=self.player_hand.len(); let phtot=self.hand_total(&self.player_hand);
+        if phlen == 2 && phtot == 21 {
             self.player_done = true;
             self.finish_dealer();
         }
@@ -118,8 +121,9 @@ impl BlackjackGame {
 
     pub fn hit(&mut self) {
         if self.state != BJState::PlayerTurn || self.player_done { return; }
-        self.player_hand.push(self.draw());
-        if self.is_bust(&self.player_hand) {
+        let card = self.draw(); self.player_hand.push(card);
+        let bust = self.is_bust(&self.player_hand);
+        if bust {
             self.player_done = true;
             self.state = BJState::Complete;
             self.result = Some(BJResult::DealerWin);
@@ -137,9 +141,10 @@ impl BlackjackGame {
     pub fn double_down(&mut self) {
         if self.state != BJState::PlayerTurn || self.player_done { return; }
         self.bet_sompi *= 2;
-        self.player_hand.push(self.draw());
+        let dd_card = self.draw(); self.player_hand.push(dd_card);
         self.player_done = true;
-        if self.is_bust(&self.player_hand) {
+        let dd_bust = self.hand_total(&self.player_hand) > 21;
+        if dd_bust {
             self.state = BJState::Complete;
             self.result = Some(BJResult::DealerWin);
         } else {
@@ -149,20 +154,23 @@ impl BlackjackGame {
 
     fn finish_dealer(&mut self) {
         self.state = BJState::DealerTurn;
-        while self.hand_total(&self.dealer_hand) < 17 {
-            self.dealer_hand.push(self.draw());
+        loop {
+            let tot = self.hand_total(&self.dealer_hand);
+            if tot >= 17 { break; }
+            let card = self.draw(); self.dealer_hand.push(card);
         }
         let pt = self.hand_total(&self.player_hand);
         let dt = self.hand_total(&self.dealer_hand);
-        let pbj = self.is_blackjack(&self.player_hand);
-        let dbj = self.is_blackjack(&self.dealer_hand);
+        let pbj = self.player_hand.len()==2 && pt==21;
+        let dbj = self.dealer_hand.len()==2 && dt==21;
+        let dbust = self.is_bust(&self.dealer_hand);
         self.result = if pbj && !dbj {
             Some(BJResult::PlayerBlackjack)
         } else if pbj && dbj {
             Some(BJResult::Push)
         } else if dbj {
             Some(BJResult::DealerWin)
-        } else if self.is_bust(&self.dealer_hand) {
+        } else if dbust {
             Some(BJResult::PlayerWin)
         } else if pt > dt {
             Some(BJResult::PlayerWin)
@@ -178,8 +186,8 @@ impl BlackjackGame {
         format!(
             "{{\"state\":{},\"bet\":{},\"player_total\":{},\"dealer_total\":{},\"player_done\":{},\"result\":{}}}",
             self.state.clone() as u8, self.bet_sompi,
-            self.hand_total(&self.player_hand),
-            self.hand_total(&self.dealer_hand),
+            { let h=&self.player_hand; self.hand_total(&self.player_hand.clone()) },
+            { let h=&self.dealer_hand; self.hand_total(&self.player_hand.clone()) },
             self.player_done,
             bj_result_str(&self.result)
         )

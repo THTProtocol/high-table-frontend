@@ -41,7 +41,7 @@ pub struct RpsGame {
     pub round: u8,
     pub score0: u8,
     pub score1: u8,
-    pub commits: [Option<String>; 6], // 3 rounds x 2 players
+    pub commits: Vec<Option<String>>, // 3 rounds x 2 players
     pub reveals: [Option<Move>; 6],
     pub round_salt: String,
 }
@@ -52,7 +52,7 @@ impl RpsGame {
             round: 0,
             score0: 0,
             score1: 0,
-            commits: [None; 6],
+            commits: vec![None, None, None, None, None, None],
             reveals: [None; 6],
             round_salt: String::new(),
         }

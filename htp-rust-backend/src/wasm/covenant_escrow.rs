@@ -35,6 +35,7 @@ const OP_ENDIF:      u8 = 0x68;
 const OP_EQUAL:      u8 = 0x87;
 const OP_EQUALVERIFY: u8 = 0x88;
 const OP_CHECKSIG:   u8 = 0xAC;
+const OP_CHECKSIGVERIFY: u8 = 0xAD;
 const OP_BLAKE2B:    u8 = 0xAA;
 const OP_CHECKSEQUENCEVERIFY: u8 = 0xB2; // BIP-112 / KIP-17
 const OP_CHECKBLOCKHEIGHT:    u8 = 0xB5; // KIP-17

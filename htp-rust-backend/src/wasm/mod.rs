@@ -20,7 +20,7 @@ pub use autopayout::{AutoPayout, UtxoSelector};
 pub use board_engine::{BoardEngine, GameState, ValidationResult};
 pub use covenant_escrow::{
     build_cancel_tx, build_deadline_tx, build_leave_tx, build_settlement_tx,
-    create_covenant_escrow, encode_covenant_id_kip20, CovenantEscrow, CovenantId, CovenantSpend,
+encode_covenant_id_kip20, CovenantEscrow, CovenantId, CovenantSpend,
     SpendPath,
 };
 pub use fee_engine::FeeEngine;

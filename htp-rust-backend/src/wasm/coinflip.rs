@@ -8,6 +8,7 @@ use std::string::String;
 use blake2::{Blake2b, Digest};
 use blake2::digest::consts::U32;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CoinSide {
     Heads = 0,
     Tails = 1,
@@ -53,8 +54,8 @@ impl CoinflipGame {
             // player who chose the winning side wins
             let winning_player = match (&self.choice0, &self.choice1) {
                 (Some(c0), Some(c1)) => {
-                    if *c0 as u8 == winning_side as u8 { Some(0u8) }
-                    else if *c1 as u8 == winning_side as u8 { Some(1u8) }
+                    if (*c0 as u8) == (winning_side as u8) { Some(0u8) }
+                    else if (*c1 as u8) == (winning_side as u8) { Some(1u8) }
                     else { None }
                 }
                 _ => None,

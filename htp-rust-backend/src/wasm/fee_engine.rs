@@ -78,11 +78,11 @@ impl FeeEngine {
     /// Convert float KAS to u64 sompi. Input should be validated.
     pub fn kas_to_sompi(kas: &str) -> Result<u64, String> {
         let parts: Vec<&str> = kas.split('.').collect();
-        let whole: u64 = parts[0].parse().map_err(|e| e.to_string())?;
+        let whole: u64 = parts[0].parse::<u64>().map_err(|e| e.to_string())?;
         let frac_val = if parts.len() > 1 {
             let f = parts[1];
             let padded = format!("{:0<8}", f);
-            let frac: u64 = padded[..8].parse().map_err(|e| e.to_string())?;
+            let frac: u64 = padded[..8].parse::<u64>().map_err(|e| e.to_string())?;
             frac
         } else { 0 };
         Ok(whole.saturating_mul(SOMPI_PER_KAS).saturating_add(frac_val))
