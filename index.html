@@ -5074,6 +5074,8 @@ event MyMarket {
                         <option value="connect4" data-times="1|0,2|0,3|0,5|0,10|0" data-series="1,3,5,7">🔴 Connect 4</option>
                         <option value="checkers" data-times="3|0,5|0,5|3,10|0,10|5,15|0" data-series="1,3,5,7">⚪ Checkers</option>
                         <option value="tictactoe" data-times="0|5,0|10,0|15,0|30,1|0,2|0,3|0,5|0" data-series="1,3,5,7,9">✕ Tic-Tac-Toe</option>
+                        <option value="poker" data-times="5|0,10|0,15|0,20|0,30|0,60|0" data-series="1,3,5">PK Poker</option>
+                        <option value="blackjack" data-times="1|0,2|0,3|0,5|0,10|0" data-series="1,3,5">BJ Blackjack</option>
                     </select>
 
                     <div style="position:relative;z-index:1;margin-bottom:6px">
@@ -5096,6 +5098,14 @@ event MyMarket {
                         <button type="button" class="sg-gbtn" data-game="tictactoe" style="padding:20px 10px 16px;gap:10px">
                             <span class="sg-ico" style="color:#49e8c2;font-size:40px">✕</span>
                             <span class="sg-lbl" style="font-size:11px">Tic-Tac-Toe</span>
+                        </button>
+                        <button type="button" class="sg-gbtn" data-game="poker" style="padding:20px 10px 16px;gap:10px">
+                            <span class="sg-ico" style="color:#b8c;font-size:34px">PK</span>
+                            <span class="sg-lbl" style="font-size:11px">Poker</span>
+                        </button>
+                        <button type="button" class="sg-gbtn" data-game="blackjack" style="padding:20px 10px 16px;gap:10px">
+                            <span class="sg-ico" style="color:#e74c3c;font-size:34px">BJ</span>
+                            <span class="sg-lbl" style="font-size:11px">Blackjack</span>
                         </button>
                     </div>
                     <script>(function(){var btns=document.querySelectorAll('#sgGamePicker .sg-gbtn'),sel=document.getElementById('sgGame');function act(g){btns.forEach(function(b){var on=b.getAttribute('data-game')===g;b.classList.toggle('act',on);});}btns.forEach(function(b){b.addEventListener('click',function(){sel.value=b.getAttribute('data-game');sel.dispatchEvent(new Event('change'));act(sel.value);});});})();</script>
@@ -6402,6 +6412,11 @@ event MyMarket {
   
   <!-- Logo (base64 JPEG from original design) -->
   <script src="htp-logo-data.js"></script>
+
+  <script src="htp-new-games.js"></script>
+  <!-- Poker + Blackjack UIs -->
+  <script src="htp-poker-ui.js"></script>
+  <script src="htp-blackjack-ui.js"></script>
 
     <script>
         // === HTP v70.0: localStorage quota protection ===
@@ -12438,8 +12453,8 @@ function renderLobby() {
     if (countEl) countEl.textContent = (waiting.length + active.length) + ' match' + ((waiting.length + active.length) !== 1 ? 'es' : '');
 
     var html = '';
-    var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe' };
-    var gI = { chess: 'CH', connect4: 'C4', checkers: 'CK', poker: 'PK', blackjack: 'BJ' };
+    var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe', poker: 'Poker', blackjack: 'Blackjack' };
+    var gI = { chess: 'CH', connect4: 'C4', checkers: 'CK', poker: 'PK', blackjack: 'BJ', backgammon: 'BG', rps: 'RPS', coinflip: 'CF', wordduel: 'WD' };
 
     if (waiting.length === 0 && active.length === 0) {
         html = '<div style="text-align:center;padding:40px 16px;color:#555">' +
@@ -13193,6 +13208,10 @@ function showGameOverOverlay(title, amountText, color, match) {
                 var mySide = creatorFirst ? (isCreator ? 1 : 3) : (isCreator ? 3 : 1);
                 startCheckersGame({ id: match.id, time: match.timeControl, side: mySide });
                 hookMoveRelay(match.id, 'ck');
+            } else if (match.game === 'poker') {
+                pokerInit({ id: match.id, stake: match.stake || 10, isCreator: isCreator, seed: hash });
+            } else if (match.game === 'blackjack') {
+                bjInit({ id: match.id, stake: match.stake || 10, isCreator: isCreator, seed: hash });
             }
         }</script>
 
