@@ -1,36 +1,46 @@
-name: HTP Oracle Daemon (Cron)
+name: Oracle Daemon Cron
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes
-  workflow_dispatch:         # manual trigger from GitHub UI
+    - cron: '*/5 * * * *'  # every 5 minutes
+  workflow_dispatch:       # manual trigger
 
 jobs:
-  attest:
+  run-oracle-daemon:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v3
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 18
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install deps
+        run: |
+          cd htp-oracle-daemon
+          npm install blakejs dotenv node-fetch firebase-admin
 
-      - name: Write Firebase service key
-        run: echo '${{ secrets.FIREBASE_SERVICE_KEY_JSON }}' > serviceAccountKey.json
-
-      - name: Run oracle daemon (single cycle)
+      - name: Run oracle-daemon-v2
         env:
-          ORACLE_MNEMONIC:      ${{ secrets.ORACLE_MNEMONIC }}
-          FIREBASE_DB_URL:      ${{ secrets.FIREBASE_DB_URL }}
-          FIREBASE_SERVICE_KEY: ./serviceAccountKey.json
-          NETWORK:              tn12
-          THRESHOLD:            1
-          POLL_INTERVAL_MS:     999999999
-        run: timeout 180 node oracle-daemon-once.js || true
+          FIREBASE_DB_URL:     ${{ secrets.FIREBASE_DB_URL }}
+          FIREBASE_SERVICE_KEY: ${{ secrets.FIREBASE_SERVICE_KEY }}
+          ORACLE_MNEMONIC:     ${{ secrets.ORACLE_MNEMONIC }}
+          NETWORK:             tn12
+          ORACLE_PORT:         8080
+          M_REQUIRED:          1
+          ORACLE_INDEX:        0
+        run: |
+          cd htp-oracle-daemon
+          timeout 240s node oracle-daemon-v2.js
+        continue-on-error: true  # allow next step even if daemon exits
+
+      - name: Run attestor (webhook listener short-lived)
+        env:
+          FIREBASE_DB_URL:     ${{ secrets.FIREBASE_DB_URL }}
+          ORACLE_MNEMONIC:     ${{ secrets.ORACLE_MNEMONIC }}
+          NETWORK:             tn12
+          KASPA_RPC_URL:       https://api-tn12.kaspa.org
+        run: |
+          cd htp-oracle-daemon
+          timeout 120s node attestor.js
+        continue-on-error: true
