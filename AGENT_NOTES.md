@@ -8,7 +8,7 @@
 - AGENT 5: WIP | wallet-rpc | branch created, files pending
 - AGENT 6: pending | maximizer-event-ui
 - AGENT 7: pending | games-rust-expansion
-- AGENT 8: pending | oracle-decentralised
+- AGENT 8: DONE | oracle-decentralised
 - AGENT 9: pending | firebase-bridge
 - AGENT 10: pending | ui-polish
 - AGENT 11: pending | ci-cd
@@ -20,3 +20,4 @@
 (keep the rules section as-is)
 
 AGENT 2 DONE: silverscript-contracts
+AGENT 8 DONE: oracle-decentralised

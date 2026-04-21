@@ -80,6 +80,10 @@
     var minPos = parseFloat(document.getElementById('event-min-position').value) || 1;
     var maxPEl = document.getElementById('event-max-participants');
     var maxP = maxPEl && maxPEl.value ? parseInt(maxPEl.value) : null;
+    var expectedVolume = parseFloat(document.getElementById('event-expected-volume').value) || 0;
+    var maxPct = parseFloat(document.getElementById('event-maximizer-limit-pct').value);
+    var maxPctVal = Math.max(0, Math.min(100, (isNaN(maxPct) ? 0 : maxPct)));
+    var oracleAddr = document.getElementById('event-oracle-address').value.trim() || null;
     var timestamp = Math.floor(new Date(dateVal).getTime() / 1000);
     var marketId = generateId();
 
@@ -92,10 +96,14 @@
       sourceUrl: url,
       minPosition: minPos,
       maxParticipants: maxP,
+      expectedVolume: expectedVolume,
+      maximizerLimitPct: maxPctVal,
+      oracleAddress: oracleAddr,
       creatorAddress: addr,
       status: 'active',
       totalPool: 0,
       positions: {},
+      covenantId: null, // Will be set after creation
       createdAt: null // set by Firebase ServerValue
     };
 
@@ -115,6 +123,16 @@
     db.ref('markets/' + marketId).set(market).then(function() {
       console.log('[HTP EventCreator] Market created:', marketId);
       if (W.showToast) W.showToast('Market created: ' + title, 'success');
+      
+      // Show covenant ID in UI
+      const covenantId = 'cov_' + marketId.toLowerCase() + '_' + new Date().getTime().toString(36);
+      if (W.showToast) W.showToast('Covenant ID: ' + covenantId, 'info');
+      
+      // Update market with covenant ID
+      market.covenantId = covenantId;
+      return db.ref('markets/' + marketId).update({ covenantId: covenantId });
+    }).then(function() {
+      console.log('[HTP EventCreator] Covenant ID updated:', covenantId);
       W.dispatchEvent(new CustomEvent('htp:market:created', { detail: market }));
 
       // Clear form
@@ -124,6 +142,9 @@
       document.getElementById('event-source-url').value = '';
       document.getElementById('event-min-position').value = '';
       if (maxPEl) maxPEl.value = '';
+      document.getElementById('event-expected-volume').value = '';
+      document.getElementById('event-maximizer-limit-pct').value = '';
+      document.getElementById('event-oracle-address').value = '';
 
       // Reset char counters
       if (W.updateCharCounter) {

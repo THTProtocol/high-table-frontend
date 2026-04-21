@@ -36,6 +36,89 @@
       .htp-maximizer-panel h3::before {
         content: '⚡';
       }
+      .htp-mode-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .htp-mode-btn {
+        flex: 1;
+        padding: 8px 12px;
+        background: #1e293b;
+        border: 1px solid rgba(73,232,194,0.3);
+        border-radius: 8px;
+        color: #cbd5e1;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+      }
+      .htp-mode-btn.active {
+        background: rgba(73,232,194,0.2);
+        border-color: #49e8c2;
+        color: #49e8c2;
+      }
+      .htp-mode-btn:hover {
+        opacity: 0.8;
+      }
+      .htp-odds-impact {
+        font-size: 11px;
+        color: #64748b;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .htp-odds-impact.live {
+        color: #49e8c2;
+      }
+      .htp-hedge-claim {
+        background: rgba(245,158,11,0.1);
+        border: 1px solid rgba(245,158,11,0.3);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #f59e0b;
+        margin-bottom: 14px;
+        line-height: 1.6;
+      }
+      .htp-hedge-claim strong {
+        color: #fff;
+      }
+      .htp-maximizer-badge {
+        background: linear-gradient(135deg, #49e8c2, #3b82f6);
+        color: #0f172a;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .htp-progress-bar-wrap {
+        margin-bottom: 12px;
+      }
+      .htp-progress-bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+      .htp-progress-bar-track {
+        background: #1e293b;
+        border-radius: 99px;
+        height: 4px;
+        overflow: hidden;
+      }
+      .htp-progress-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        background: linear-gradient(90deg, #49e8c2, #3b82f6);
+        transition: width 0.3s ease;
+      }
       .htp-bet-input-row {
         display: flex;
         align-items: center;
@@ -182,6 +265,18 @@
     document.head.appendChild(s);
   }
 
+  // Utility function to render maximizer badge on lobby cards
+  function addMaximizerBadge(marketId) {
+    // Look for market card by data-market-id and add badge
+    const card = document.querySelector(`[data-market-id="${marketId}"] .market-card-title`);
+    if (card && !card.querySelector('.htp-maximizer-badge')) {
+      const badge = document.createElement('span');
+      badge.className = 'htp-maximizer-badge';
+      badge.textContent = 'Maximizer ⚡';
+      card.appendChild(badge);
+    }
+  }
+
   // ── Core renderer ─────────────────────────────────────────────────────────
   function render(containerId, eventConfig) {
     injectStyles();
@@ -200,24 +295,30 @@
 
     container.innerHTML = `
       <div class="htp-maximizer-panel">
-        <h3>Maximizer Bet</h3>
-        <div class="htp-maximizer-toggle" id="htp-mx-toggle-row">
-          <div class="htp-toggle-switch" id="htp-mx-toggle"></div>
-          <span class="htp-toggle-label">Enable Maximizer <strong>(50% hedged)</strong></span>
+        <h3>Place Bet</h3>
+        <div class="htp-mode-buttons" id="htp-mode-buttons">
+          <div class="htp-mode-btn active" data-mode="standard" id="htp-btn-standard">Standard Bet</div>
+          <div class="htp-mode-btn" data-mode="maximizer" id="htp-btn-maximizer">Maximizer ⚡</div>
         </div>
         <div class="htp-bet-input-row">
           <input class="htp-bet-input" id="htp-mx-amount" type="number" min="1" step="1" placeholder="Enter KAS amount" />
           <span class="htp-kas-label">KAS</span>
         </div>
+        <div class="htp-odds-impact" id="htp-odds-impact"></div>
         <div class="htp-split-grid" id="htp-mx-split" style="display:none">
           <div class="htp-split-box pool">
-            <div class="label">→ Pool</div>
+            <div class="label">→ Pool (50%)</div>
             <div class="value" id="htp-mx-pool">0 KAS</div>
           </div>
           <div class="htp-split-box hedge">
-            <div class="label">→ Hedge</div>
+            <div class="label">→ Hedge UTXO (50%)</div>
             <div class="value" id="htp-mx-hedge">0 KAS</div>
           </div>
+        </div>
+        <div class="htp-hedge-claim" id="htp-hedge-claim" style="display:none">
+          <strong>If you lose:</strong> <span id="hedge-return">0 KAS</span> back,
+          <span id="hedge-fee">0 KAS</span> to protocol<br>
+          <small>Covenant-locked UTXO available for claim</small>
         </div>
         <div class="htp-cap-bar-wrap" id="htp-mx-capwrap" style="display:none">
           <div class="htp-cap-bar-label">
@@ -228,6 +329,15 @@
             <div class="htp-cap-bar-fill" id="htp-mx-capfill" style="width:0%"></div>
           </div>
         </div>
+        <div class="htp-progress-bar-wrap" id="htp-mx-progress-wrap" style="display:none">
+          <div class="htp-progress-bar-label">
+            <span>Creator event usage</span>
+            <span id="htp-mx-progress-text">0 / —</span>
+          </div>
+          <div class="htp-progress-bar-track">
+            <div class="htp-progress-bar-fill" id="htp-mx-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
         <div class="htp-maximizer-status ok" id="htp-mx-status" style="display:none"></div>
         <div class="htp-payout-preview" id="htp-mx-preview" style="display:none"></div>
         <button class="htp-place-btn" id="htp-mx-btn" disabled>Enter amount to continue</button>
@@ -236,8 +346,20 @@
 
     let isMaximizer = false;
 
-    const toggle    = document.getElementById('htp-mx-toggle');
-    const toggleRow = document.getElementById('htp-mx-toggle-row');
+    const modeButtons   = document.getElementById('htp-mode-buttons');
+    const btnStandard   = document.getElementById('htp-btn-standard');
+    const btnMaximizer  = document.getElementById('htp-btn-maximizer');
+    const oddsImpact    = document.getElementById('htp-odds-impact');
+    const hedgeClaim    = document.getElementById('htp-hedge-claim');
+    const hedgeReturn   = document.getElementById('hedge-return');
+    const hedgeFee      = document.getElementById('hedge-fee');
+    const progressWrap  = document.getElementById('htp-mx-progress-wrap');
+    const progressText  = document.getElementById('htp-mx-progress-text');
+    const progressFill  = document.getElementById('htp-mx-progress-fill');
+
+    // Hide old toggle elements from original design
+    const toggleRow     = document.getElementById('htp-mx-toggle-row');
+    const toggle        = document.getElementById('htp-mx-toggle');
     const input     = document.getElementById('htp-mx-amount');
     const splitEl   = document.getElementById('htp-mx-split');
     const poolEl    = document.getElementById('htp-mx-pool');
@@ -264,10 +386,22 @@
       if (!isMaximizer) {
         // Standard bet
         splitEl.style.display = 'none';
+        hedgeClaim.style.display = 'none';
         capWrap.style.display = 'none';
         statusEl.style.display = 'none';
+        progressWrap.style.display = 'none';
+        
+        // Show odds impact for standard
         const gross = bet * cfg.currentOdds;
         const fee   = (gross - bet) * 0.02;
+        
+        oddsImpact.style.display = 'flex';
+        oddsImpact.className = 'htp-odds-impact live';
+        oddsImpact.innerHTML = `
+          <span>Live odds impact:</span>
+          <span>${cfg.currentOdds.toFixed(2)}x multiplier</span>
+        `;
+        
         previewEl.style.display = 'block';
         previewEl.innerHTML = `
           <span class="win">WIN</span>: ${(gross - fee).toFixed(2)} KAS &nbsp;<span class="fee">(2% fee: ${fee.toFixed(2)} KAS)</span><br>
@@ -290,10 +424,30 @@
         currentMaximizerTotal:  cfg.currentMaximizerTotal,
       }, bet);
 
-      // Split display
+      // Maximizer
       splitEl.style.display = 'grid';
+      capWrap.style.display = 'block';
+      statusEl.style.display = 'block';
+      hedgeClaim.style.display = 'block';
+      progressWrap.style.display = 'block';
+
+      // Odds impact indicator (live)
+      oddsImpact.style.display = 'flex';
+      oddsImpact.className = 'htp-odds-impact live';
+      oddsImpact.innerHTML = `
+        <span>Maximizer odds impact:</span>
+        <span>${((cfg.currentOdds - 1) * 50).toFixed(1)}% improved payout</span>
+      `;
+
+      // Show pool split details (50/50)
       poolEl.textContent  = split.poolContribution.toFixed(2) + ' KAS';
       hedgeEl.textContent = split.hedgeAmount.toFixed(2) + ' KAS';
+
+      // Show hedge claim preview information
+      const hedgeReturnAmount = (split.hedgeAmount * 0.7).toFixed(2);
+      const hedgeFeeAmount    = (split.hedgeAmount * 0.3).toFixed(2);
+      hedgeReturn.textContent = hedgeReturnAmount;
+      hedgeFee.textContent    = hedgeFeeAmount;
 
       // Cap bar
       capWrap.style.display = 'block';
@@ -323,18 +477,36 @@
         <span class="lose">LOSE</span>: claim <strong style="color:#f59e0b">${loseCalc.claimable.toFixed(2)} KAS</strong> hedge back &nbsp;<span class="fee">(30% fee: ${loseCalc.protocolFee.toFixed(2)} KAS)</span>
       `;
 
-      btn.disabled = !check.allowed;
       btn.textContent = check.allowed
         ? `Place ${bet} KAS Maximizer Bet`
         : 'Maximizer Cap Reached';
+
+      // Update progress bar for creator events (used/cap)
+      if (check.used !== undefined && check.cap !== undefined) {
+        if (check.cap > 0) {
+          const pctUsed = Math.min(100, (check.used / check.cap) * 100);
+          progressText.textContent = `${check.used.toFixed(0)} / ${check.cap.toFixed(0)} KAS`;
+          progressFill.style.width = pctUsed + '%';
+        } else {
+          progressText.textContent = '— / —';
+          progressFill.style.width = '0%';
+        }
+      } else {
+        progressWrap.style.display = 'none';
+      }
+
+      btn.disabled = !check.allowed;
     }
 
-    toggleRow.addEventListener('click', function() {
-      isMaximizer = !isMaximizer;
-      toggle.classList.toggle('on', isMaximizer);
+    function setMode(mode) {
+      isMaximizer = mode === 'maximizer';
+      btnStandard.classList.toggle('active', !isMaximizer);
+      btnMaximizer.classList.toggle('active', isMaximizer);
       update();
-    });
+    }
 
+    btnStandard.addEventListener('click', function() { setMode('standard'); });
+    btnMaximizer.addEventListener('click', function() { setMode('maximizer'); });
     input.addEventListener('input', update);
 
     btn.addEventListener('click', function() {
@@ -353,6 +525,6 @@
     return { update, getAmount: () => parseFloat(input.value)||0, isMaximizer: () => isMaximizer };
   }
 
-  W.HTPMaximizerUI = { render };
+  W.HTPMaximizerUI = { render, addMaximizerBadge };
   console.log('[HTPMaximizerUI] loaded');
 })(window);
