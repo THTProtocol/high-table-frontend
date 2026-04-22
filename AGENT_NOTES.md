@@ -23,6 +23,12 @@ AGENT 2 DONE: silverscript-contracts
 AGENT 8 DONE: oracle-decentralised
 AGENT 6 DONE: maximizer-event-ui
 
+### SilverScript Compile — DEFERRED (April 22, 2026, Phase 1)
+- silverc syntax for `tx.time` comparisons unclear — `expected unary` parse error
+- contracts written but not compiled to .json artifacts
+- .json artifacts needed manually later once silverc documentation is available
+- All .silverscript files restored to original state
+
 ## FINAL STATUS REPORT — April 22, 2026 01:07 UTC
 ### COMPLETED AGENTS (12/14)
 - AGENT 1: Covenant Escrow Rust (10 wasm modules, CovenantEscrow with all spend paths)
