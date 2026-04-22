@@ -11,6 +11,7 @@ mod wallet;
 mod escrow;
 mod blockdag;
 mod broadcast;
+mod routes;
 
 mod wasm;
 
@@ -134,8 +135,29 @@ async fn main() {
         .route("/escrow/create", post(escrow_create))
         .route("/escrow/payout", post(escrow_payout))
         .route("/escrow/cancel", post(escrow_cancel))
+        .route("/escrow/settle", post(routes::escrow_settle))
+        .route("/escrow/status/{id}", get(routes::escrow_status))
         .route("/blockdag/live", get(blockdag_live))
         .route("/tx/broadcast", post(tx_broadcast))
+        .route("/api/chess/move", post(routes::chess_move))
+        .route("/api/checkers/move", post(routes::checkers_move))
+        .route("/api/connect4/move", post(routes::connect4_move))
+        .route("/api/poker/action", post(routes::poker_action))
+        .route("/api/blackjack/action", post(routes::blackjack_action))
+        .route("/api/coinflip/commit", post(routes::coinflip_commit))
+        .route("/api/coinflip/reveal", post(routes::coinflip_reveal))
+        .route("/api/rps/commit", post(routes::rps_commit))
+        .route("/api/rps/reveal", post(routes::rps_reveal))
+        .route("/api/wordduel/guess", post(routes::wordduel_guess))
+        .route("/api/backgammon/state/{game_id}", get(routes::backgammon_state))
+        .route("/api/backgammon/move", post(routes::backgammon_move))
+        .route("/api/backgammon/roll", post(routes::backgammon_roll))
+        .route("/api/event/create", post(routes::event_create))
+        .route("/api/event/bet", post(routes::event_bet))
+        .route("/api/event/pool/{id}", get(routes::event_pool))
+        .route("/api/event/settle", post(routes::event_settle))
+        .route("/api/oracle/pubkey", get(routes::oracle_pubkey))
+        .route("/api/oracle/attest", post(routes::oracle_attest))
         .layer(cors);
 
     let port: u16 = std::env::var("PORT")
