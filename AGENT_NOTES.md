@@ -68,3 +68,12 @@ AGENT 17 DONE: wasm-compilation
 - Resolver-only RPC, Borsh encoding
 - Phase 2/3 path clear (M-of-N scaffolded, ZK pipeline stubs)
 - Security audit: ZERO critical findings
+
+AGENT 10 DONE: UI/UX polish - Added mobile touch DnD enhancements, skeleton loaders for lobby sections, styled error cards with htp-error-card class, responsive fixes for mobile screens (<768px), enhanced chess touch JS with better mobile support, improved error message system with card display option
+AGENT 10 DONE: UI/UX polish — skeleton loaders, responsive media query, mobile chess touch, error cards
+• Added htp-skeleton-loader.js with skeletonShow(id) and skeletonHide(id) functions
+• Enhanced responsive CSS with comprehensive @media (max-width: 768px) for mobile screens
+• Extended chess touch DnD functionality with htpChessTouchDrag() support in htp-chess-touch.js
+• Improved error cards with dark glass aesthetic in htp-error-messages.js
+• Added mobile-friendly navigation classes, touch feedback, and modal sizing
+• All additions follow chip-style aesthetic with muted borders and glow accents

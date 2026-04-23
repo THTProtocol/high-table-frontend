@@ -92,6 +92,42 @@
           touch-action: manipulation !important;
         }
       }
+
+      /* Enhanced mobile touch experience */
+      .square {
+        position: relative;
+        cursor: grab;
+      }
+      
+      .piece {
+        cursor: grab;
+        transition: opacity 0.2s ease;
+      }
+      
+      .square:active {
+        cursor: grabbing;
+      }
+      
+      .piece:active {
+        cursor: grabbing;
+      }
+      
+      .touch-hint {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 4px;
+        height: 4px;
+        background: rgba(73, 232, 194, 0.6);
+        border-radius: 50%;
+        pointer-events: none;
+        animation: touchHint 2s ease-in-out infinite;
+      }
+      
+      @keyframes touchHint {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.5); opacity: 1; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -124,6 +160,9 @@
     
     // Dim original piece
     piece.classList.add('piece-original');
+    
+    // Add visual feedback
+    square.classList.add('square-drag-target');
     
     // Trigger custom event
     window.dispatchEvent(new CustomEvent('htp:chess:touchStart', {

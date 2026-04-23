@@ -6360,7 +6360,56 @@ event MyMarket {
           animation: skeleton-pulse 1.5s ease-in-out infinite;
         }
 
+        .skeleton-loading {
+          pointer-events: none !important;
+          user-select: none !important;
+        }
+        
+        .skeleton-loading * {
+          visibility: hidden !important;
+        }
+        
+        .skeleton-loading > .skeleton-pulse {
+          visibility: visible !important;
+        }
+
         .skeleton-pulse {
+          animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        
+        .skeleton-text {
+          height: 1em;
+          width: 100%;
+          margin: 0.25em 0;
+          background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.2) 50%, rgba(148, 163, 184, 0.1) 75%);
+          background-size: 200% 100%;
+          border-radius: 4px;
+          animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        
+        .skeleton-button {
+          height: 40px;
+          width: 100%;
+          max-width: 160px;
+          border-radius: var(--rc);
+          background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.2) 50%, rgba(148, 163, 184, 0.1) 75%);
+          background-size: 200% 100%;
+          animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+        
+        .skeleton-card {
+          background: var(--card);
+          border-radius: var(--rc);
+          border: 1px solid var(--border);
+          padding: 16px;
+          min-height: 120px;
+          overflow: hidden;
+        }
+        
+        .skeleton-block {
+          background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.2) 50%, rgba(148, 163, 184, 0.1) 75%);
+          background-size: 200% 100%;
+          border-radius: var(--rc);
           animation: skeleton-pulse 1.5s ease-in-out infinite;
         }
 
@@ -6457,47 +6506,244 @@ event MyMarket {
             margin-bottom: 8px !important;
           }
 
-          /* Game UI responsive */
-          .game-ui, .game-controls {
-            flex-direction: column !important;
-            gap: 12px !important;
-          }
-          
-          .game-sidebar {
-            width: 100% !important;
-            order: 2 !important;
-          }
-
-          /* Error cards responsive */
-          .htp-error-card {
-            margin: 8px !important;
-            padding: 12px !important;
-          }
-          
-          .htp-error-card-title {
-            font-size: 13px !important;
-          }
-          
-          .htp-error-card-body {
-            font-size: 12px !important;
-          }
-
-          /* Touch drag enhancements */
-          .piece-ghost {
-            transform: translate(-50%, -50%) scale(1.4) !important;
-            filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5)) !important;
-          }
-          
-          .square-drag-hover {
-            background-color: rgba(124, 111, 247, 0.6) !important;
-            box-shadow: inset 0 0 20px rgba(124, 111, 247, 0.8) !important;
-          }
-
+         /* Game UI responsive */
+         .game-ui, .game-controls {
+           flex-direction: column !important;
+           gap: 12px !important;
+         }
+         
+         .game-sidebar {
+           width: 100% !important;
+           order: 2 !important;
+         }
+         /* Error cards responsive */
+         .htp-error-card {
+           margin: 8px !important;
+           padding: 12px !important;
+         }
+         
+         .htp-error-card-title {
+           font-size: 13px !important;
+         }
+         
+         .htp-error-card-body {
+           font-size: 12px !important;
+         }
+         /* Touch drag enhancements */
+         .piece-ghost {
+           transform: translate(-50%, -50%) scale(1.4) !important;
+           filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5)) !important;
+         }
+         
+         .square-drag-hover {
+           background-color: rgba(124, 111, 247, 0.6) !important;
+           box-shadow: inset 0 0 20px rgba(124, 111, 247, 0.8) !important;
+         }
           /* Skeleton responsive */
           .skeleton {
             border-radius: 8px !important;
           }
+          
+          /* Additional mobile fixes for small screens */
+          .game-modal, .htp-modal {
+            max-width: calc(100vw - 16px) !important;
+            margin: 8px !important;
+            border-radius: 12px !important;
+          }
+          
+          .modal-content {
+            padding: 16px !important;
+          }
+          
+          /* Prevent horizontal overflow */
+          body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+          }
+          
+          /* Typography scaling */
+          h1 { font-size: clamp(1.5rem, 6vw, 2rem) !important; }
+          h2 { font-size: clamp(1.25rem, 5vw, 1.5rem) !important; }
+          h3 { font-size: clamp(1.1rem, 4vw, 1.25rem) !important; }
+          
+          /* Game cards responsive */
+          .game-card, .lobby-card-component {
+            min-width: 280px !important;
+            max-width: calc(100vw - 32px) !important;
+          }
+          
+          /* Skeleton loader fixes */
+          .skeleton-loading { max-width: 100% !important; }
+          .skeleton-loading .skeleton-pulse { max-width: 100% !important; }
+          
+          /* Modern mobile navigation */
+          .bottom-nav-mobile {
+            display: flex !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: rgba(6, 10, 22, 0.98) !important;
+            backdrop-filter: blur(10px) !important;
+            border-top: 1px solid rgba(148, 163, 184, 0.1) !important;
+            padding: 8px !important;
+            z-index: 1000 !important;
+          }
+          
+          .nav-item-mobile {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 48px !important;
+            color: var(--muted) !important;
+            font-size: 11px !important;
+            text-decoration: none !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+          }
+          
+          .nav-item-mobile:hover,
+          .nav-item-mobile.active {
+            color: var(--accent) !important;
+            background: rgba(73, 232, 194, 0.1) !important;
+          }
+          
+          /* Enhanced touch feedback */
+          .touch-feedback {
+            position: relative !important;
+            overflow: hidden !important;
+          }
+          
+          .touch-feedback::before {
+            content: '' !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: rgba(73, 232, 194, 0.2) !important;
+            border-radius: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            transition: all 0.3s ease !important;
+            pointer-events: none !important;
+          }
+          
+          .touch-feedback:active::before {
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(73, 232, 194, 0.1) !important;
+          }
         }
+          
+        /* Additional mobile fixes for small screens */
+        
+          /* Game modals - ensure they fit mobile screens */
+          .game-modal, .htp-modal {
+            max-width: calc(100vw - 16px) !important;
+            margin: 8px !important;
+            border-radius: 12px !important;
+          }
+          
+          .modal-content {
+            padding: 16px !important;
+          }
+          
+          /* Prevent horizontal overflow on small screens */
+          body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+          }
+          
+          /* Typography scaling for mobile */
+          h1 {
+            font-size: clamp(1.5rem, 6vw, 2rem) !important;
+          }
+          
+          h2 {
+            font-size: clamp(1.25rem, 5vw, 1.5rem) !important;
+          }
+          
+          h3 {
+            font-size: clamp(1.1rem, 4vw, 1.25rem) !important;
+          }
+          
+          /* Game cards responsive */
+          .game-card, .lobby-card-component {
+            min-width: 280px !important;
+            max-width: calc(100vw - 32px) !important;
+          }
+          
+          /* Skeleton loader fixes for mobile */
+          .skeleton-loading {
+            max-width: 100% !important;
+          }
+          
+          .skeleton-loading .skeleton-pulse {
+            max-width: 100% !important;
+          }
+          
+          /* Modern mobile navigation additions */
+          .bottom-nav-mobile {
+            display: flex !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: rgba(6, 10, 22, 0.98) !important;
+            backdrop-filter: blur(10px) !important;
+            border-top: 1px solid rgba(148, 163, 184, 0.1) !important;
+            padding: 8px !important;
+            z-index: 1000 !important;
+          }
+          
+          .nav-item-mobile {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 48px !important;
+            color: var(--muted) !important;
+            font-size: 11px !important;
+            text-decoration: none !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+          }
+          
+          .nav-item-mobile:hover,
+          .nav-item-mobile.active {
+            color: var(--accent) !important;
+            background: rgba(73, 232, 194, 0.1) !important;
+          }
+          
+          /* Enhanced touch feedback */
+          .touch-feedback {
+            position: relative !important;
+            overflow: hidden !important;
+          }
+          
+          .touch-feedback::before {
+            content: '' !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: rgba(73, 232, 194, 0.2) !important;
+            border-radius: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            transition: all 0.3s ease !important;
+            pointer-events: none !important;
+          }
+          
+          .touch-feedback:active::before {
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(73, 232, 194, 0.1) !important;
+          }
+
     </style>
 
 
@@ -6550,15 +6796,18 @@ event MyMarket {
   <script src="htp-blockdag-viz.js"></script>
   <script src="htp-silverscript-live.js"></script>
   <script src="htp-zk-pipeline.js"></script>
-  <script src="htp-oracle-sync.js"></script>
-  
-  <!-- HTP Events -->
-  <script src="htp-events.js"></script>
-  <script src="htp-events-v3.js"></script>
-  <script src="htp-event-creator.js"></script>
-  
-  <!-- Logo (base64 JPEG from original design) -->
-  <script src="htp-logo-data.js"></script>
+ <script src="htp-oracle-sync.js"></script>
+ 
+ <!-- HTP Events -->
+ <script src="htp-events.js"></script>
+ <script src="htp-events-v3.js"></script>
+ <script src="htp-event-creator.js"></script>
+ <script src="htp-error-messages.js"></script>
+ <script src="htp-skeleton-loader.js"></script>
+ <script src="htp-chess-touch.js"></script>
+ 
+ <!-- Logo (base64 JPEG from original design) -->
+ <script src="htp-logo-data.js"></script>
 
   <script src="htp-new-games.js"></script>
   <!-- Lobby New Games -->
@@ -9626,24 +9875,37 @@ function go(v) {
         function renderMatchesTab() {
             var el = $('matchesList');
             if (!el) return;
-            var refunds = getRefunds().filter(function (r) { return r.address === walletAddress; });
-            var lobby = matchLobby ? matchLobby.matches.filter(function (m) { return m.creator === matchLobby.myPlayerId || m.opponent === matchLobby.myPlayerId; }) : [];
-            var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe' };
-            if (!refunds.length && !lobby.length) {
-                el.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--dim)"><p style="margin:0;font-size:13px">No matches yet.</p></div>';
-                return;
+            
+            // Show skeleton loading initially
+            if (window.HTPError && window.HTPError.showSkeleton) {
+                window.HTPError.showSkeleton(el, { text: true, lines: 3, height: '60px' });
             }
-            var html = '';
-            lobby.forEach(function (m) {
-                var sc = m.status === 'waiting' ? '#f59e0b' : m.status === 'active' ? 'var(--accent)' : '#888';
-                html += '<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ' + sc + '"><div><div style="font-size:13px;font-weight:600">' + (gL[m.game] || m.game) + '</div><div style="font-size:11px;color:var(--dim);margin-top:2px">' + m.stake + ' KAS \u00b7 ' + m.timeControl + '</div></div><span style="font-size:11px;font-weight:600;color:' + sc + '">' + m.status.toUpperCase() + '</span></div>';
-            });
-            refunds.forEach(function (r) {
-                var sc = r.status === 'claimed' ? 'var(--accent)' : '#f59e0b';
-                var st = r.status === 'claimed' ? 'REFUNDED' : 'PENDING';
-                html += '<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ' + sc + '"><div><div style="font-size:13px;font-weight:600">' + (gL[r.game] || 'Match') + ' \u00b7 Cancelled</div><div style="font-size:11px;color:var(--dim);margin-top:2px">' + r.amount + ' KAS \u00b7 ' + (r.matchId || '') + '</div></div><span style="font-size:11px;font-weight:600;color:' + sc + '">' + st + '</span></div>';
-            });
-            el.innerHTML = html;
+            
+            // Simulate loading delay for skeleton effect (remove in production)
+            setTimeout(function() {
+                if (window.HTPError && window.HTPError.hideSkeleton) {
+                    window.HTPError.hideSkeleton(el);
+                }
+                
+                var refunds = getRefunds().filter(function (r) { return r.address === walletAddress; });
+                var lobby = matchLobby ? matchLobby.matches.filter(function (m) { return m.creator === matchLobby.myPlayerId || m.opponent === matchLobby.myPlayerId; }) : [];
+                var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe' };
+                if (!refunds.length && !lobby.length) {
+                    el.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--dim)"><p style="margin:0;font-size:13px">No matches yet.</p></div>';
+                    return;
+                }
+                var html = '';
+                lobby.forEach(function (m) {
+                    var sc = m.status === 'waiting' ? '#f59e0b' : m.status === 'active' ? 'var(--accent)' : '#888';
+                    html += '<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ' + sc + '"><div><div style="font-size:13px;font-weight:600">' + (gL[m.game] || m.game) + '</div><div style="font-size:11px;color:var(--dim);margin-top:2px">' + m.stake + ' KAS · ' + m.timeControl + '</div></div><span style="font-size:11px;font-weight:600;color:' + sc + '"'>>' + m.status.toUpperCase() + '</span></div>';
+                });
+                refunds.forEach(function (r) {
+                    var sc = r.status === 'claimed' ? 'var(--accent)' : '#f59e0b';
+                    var st = r.status === 'claimed' ? 'REFUNDED' : 'PENDING';
+                    html += '<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ' + sc + '"><div><div style="font-size:13px;font-weight:600">' + (gL[r.game] || 'Match') + ' · Cancelled</div><div style="font-size:11px;color:var(--dim);margin-top:2px">' + r.amount + ' KAS · ' + (r.matchId || '') + '</div></div><span style="font-size:11px;font-weight:600;color:' + sc + '"'>>' + st + '</span></div>';
+                });
+                el.innerHTML = html;
+            }, 800); // Short delay to show skeleton effect
         }
 
         function renderHistoryTab() {
@@ -12596,46 +12858,57 @@ function renderLobby() {
     var container = document.getElementById('matchLobby');
     if (!container) return;
 
-    var countEl = document.getElementById('lobbyCount');
-    var waiting = matchLobby.matches.filter(function (m) { return m.status === 'waiting'; });
-    var active = matchLobby.matches.filter(function (m) { return m.status === 'active'; });
-    if (countEl) countEl.textContent = (waiting.length + active.length) + ' match' + ((waiting.length + active.length) !== 1 ? 'es' : '');
-
-    var html = '';
-    var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe', poker: 'Poker', blackjack: 'Blackjack' };
-    var gI = { chess: 'CH', connect4: 'C4', checkers: 'CK', poker: 'PK', blackjack: 'BJ', backgammon: 'BG', rps: 'RPS', coinflip: 'CF', wordduel: 'WD' };
-
-    if (waiting.length === 0 && active.length === 0) {
-        html = '<div style="text-align:center;padding:40px 16px;color:#555">' +
-            '<div style="font-size:20px;margin-bottom:12px;opacity:.4;color:var(--muted)">No Games</div>' +
-            '<div style="font-size:14px;font-weight:600;color:var(--muted)">No open matches</div>' +
-            '<div style="font-size:12px;color:#555">Create a match above to start</div></div>';
+    // Show skeleton loading initially
+    if (window.HTPError && window.HTPError.showSkeleton) {
+        window.HTPError.showSkeleton(container, { text: true, lines: 6, height: '80px' });
     }
 
-    waiting.forEach(function (m) {
-        var label = gL[m.game] || m.game;
-        var icon = gI[m.game] || 'GM';
-        var isMine = (m.creator === matchLobby.myPlayerId);
-        var age = Math.floor((Date.now() - m.created) / 60000);
-        var ageText = age < 1 ? 'just now' : age + 'm ago';
-
-        html += '<div class="lobby-card lobby-card-wait"' + (isMine ? ' onclick="previewMatch(\'' + m.id + '\')"' : '') + '>';
-        html += '<div class="lobby-icon">' + icon + '</div>';
-        html += '<div style="flex:1;min-width:0">';
-        html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:700;color:#e8e8e8">' + label + '</span>';
-        if (isMine) html += '<span class="lobby-badge">Your match</span>';
-        html += '</div>';
-        html += '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + m.stake + ' KAS · ' + (m.timeControl || '').replace('|', '+') + ' · ' + ageText + '</div>';
-        html += '</div>';
-        html += '<div style="text-align:right;flex-shrink:0">';
-        if (isMine) {
-            html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:6px;height:6px;border-radius:50%;background:#f59e0b;animation:pulse 2s infinite"></div><span style="font-size:11px;color:#f59e0b">Waiting...</span></div>';
-            html += '<button class="chess-btn chess-btn-danger" style="font-size:10px;padding:4px 14px" onclick="event.stopPropagation();cancelLobbyMatch(\'' + m.id + '\')">Cancel</button>';
-        } else {
-            html += '<button class="chess-btn" style="padding:10px 24px;font-size:13px;font-weight:700" onclick="event.stopPropagation();joinLobbyMatch(\'' + m.id + '\')">Join</button>';
+    // Add slight delay to render lobby with skeleton effect
+    setTimeout(function() {
+        if (window.HTPError && window.HTPError.hideSkeleton) {
+            window.HTPError.hideSkeleton(container);
         }
-        html += '</div></div>';
-    });
+
+        var countEl = document.getElementById('lobbyCount');
+        var waiting = matchLobby.matches.filter(function (m) { return m.status === 'waiting'; });
+        var active = matchLobby.matches.filter(function (m) { return m.status === 'active'; });
+        if (countEl) countEl.textContent = (waiting.length + active.length) + ' match' + ((waiting.length + active.length) !== 1 ? 'es' : '');
+
+        var html = '';
+        var gL = { chess: 'Chess', connect4: 'Connect 4', checkers: 'Checkers', tictactoe: 'Tic-Tac-Toe', poker: 'Poker', blackjack: 'Blackjack' };
+        var gI = { chess: 'CH', connect4: 'C4', checkers: 'CK', poker: 'PK', blackjack: 'BJ', backgammon: 'BG', rps: 'RPS', coinflip: 'CF', wordduel: 'WD' };
+
+        if (waiting.length === 0 && active.length === 0) {
+            html = '<div style="text-align:center;padding:40px 16px;color:#555"'>' +
+                '<div style="font-size:20px;margin-bottom:12px;opacity:.4;color:var(--muted)">No Games</div>' +
+                '<div style="font-size:14px;font-weight:600;color:var(--muted)">No open matches</div>' +
+                '<div style="font-size:12px;color:#555">Create a match above to start</div></div>';
+        }
+
+        waiting.forEach(function (m) {
+            var label = gL[m.game] || m.game;
+            var icon = gI[m.game] || 'GM';
+            var isMine = (m.creator === matchLobby.myPlayerId);
+            var age = Math.floor((Date.now() - m.created) / 60000);
+            var ageText = age < 1 ? 'just now' : age + 'm ago';
+
+            html += '<div class="lobby-card lobby-card-wait"' + (isMine ? ' onclick="previewMatch(\'' + m.id + '\')"' : '') + '>';
+            html += '<div class="lobby-icon">' + icon + '</div>';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:700;color:#e8e8e8">' + label + '</span>';
+            if (isMine) html += '<span class="lobby-badge">Your match</span>';
+            html += '</div>';
+            html += '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + m.stake + ' KAS · ' + (m.timeControl || '').replace('|', '+') + ' · ' + ageText + '</div>';
+            html += '</div>';
+            html += '<div style="text-align:right;flex-shrink:0">';
+            if (isMine) {
+                html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:6px;height:6px;border-radius:50%;background:#f59e0b;animation:pulse 2s infinite"></div><span style="font-size:11px;color:#f59e0b">Waiting...</span></div>';
+                html += '<button class="chess-btn chess-btn-danger" style="font-size:10px;padding:4px 14px" onclick="event.stopPropagation();cancelLobbyMatch(\'' + m.id + '\')">Cancel</button>';
+            } else {
+                html += '<button class="chess-btn" style="padding:10px 24px;font-size:13px;font-weight:700" onclick="event.stopPropagation();joinLobbyMatch(\'' + m.id + '\')">Join</button>';
+            }
+            html += '</div></div>';
+        });
 
     active.forEach(function (m) {
         var label = gL[m.game] || m.game;
@@ -12658,6 +12931,9 @@ function renderLobby() {
         html += '</div></div>';
     });
 
+        container.innerHTML = html;
+    }, 400); // Short delay to show skeleton effect
+}
     container.innerHTML = html;
 }
 

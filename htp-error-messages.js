@@ -180,7 +180,7 @@ window.HTPError = {
     console.log(`[HTP Success] ${message}`);
   },
 
-  /**
+    /*
    * Wrap a function with error handling
    * @param {Function} fn - Function to wrap
    * @param {Object} options - Error handling options
@@ -201,6 +201,86 @@ window.HTPError = {
         return options.defaultValue;
       }
     };
+  },
+
+  /**
+   * Show skeleton loading state for an element
+   * @param {Element|string} element - Element or selector
+   * @param {Object} options - Skeleton options
+   */
+  showSkeleton: function(element, options = {}) {
+    const target = typeof element === 'string' ? document.querySelector(element) : element;
+    if (!target) return;
+    
+    const { text = false, lines = 1, height = '20px', width = '100%' } = options;
+    
+    // Create skeleton container
+    const skeleton = document.createElement('div');
+    skeleton.className = 'skeleton-pulse';
+    skeleton.style.width = width;
+    skeleton.style.height = height;
+    skeleton.style.margin = '4px 0';
+    skeleton.style.borderRadius = '4px';
+    
+    if (text) {
+      // Create multiple lines for text content
+      const container = document.createElement('div');
+      for (let i = 0; i < lines; i++) {
+        const line = skeleton.cloneNode();
+        line.style.width = i === lines - 1 ? '60%' : '100%';
+        line.style.height = height;
+        container.appendChild(line);
+      }
+      skeleton = container;
+    }
+    
+    // Store original content
+    target.dataset.originalContent = target.innerHTML;
+    target.innerHTML = '';
+    target.appendChild(skeleton);
+    target.classList.add('skeleton-loading');
+    
+    return skeleton;
+  },
+
+  /**
+   * Hide skeleton loading state and restore original content
+   * @param {Element|string} element - Element or selector
+   * @param {string} newContent - Optional new content to show
+   */
+  hideSkeleton: function(element, newContent = null) {
+    const target = typeof element === 'string' ? document.querySelector(element) : element;
+    if (!target) return;
+    
+    // Remove skeleton elements
+    const skeletons = target.querySelectorAll('.skeleton-pulse');
+    skeletons.forEach(s => s.remove());
+    
+    target.classList.remove('skeleton-loading');
+    
+    // Restore or set content
+    if (newContent !== null) {
+      target.innerHTML = newContent;
+    } else if (target.dataset.originalContent) {
+      target.innerHTML = target.dataset.originalContent;
+      delete target.dataset.originalContent;
+    }
+  },
+
+  /**
+   * Wrap async function with skeleton loading state
+   * @param {Function} fn - Async function to wrap
+   * @param {Element|string} element - Element to show skeleton in
+   * @param {Object} options - Options for skeleton and function
+   */
+  withSkeleton: async function(fn, element, options = {}) {
+    try {
+      this.showSkeleton(element, options);
+      const result = await fn();
+      return result;
+    } finally {
+      this.hideSkeleton(element, options.newContent);
+    }
   }
 };
 
