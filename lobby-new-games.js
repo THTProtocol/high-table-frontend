@@ -27,6 +27,34 @@
       covenant_id: 'backgammon.covenant.axo'
     },
     {
+      id: 'pokerv1',
+      name: 'Poker',
+      description: 'Texas Hold\'em 2-player showdown',
+      emoji: '♠️',
+      category: 'Skill',
+      minStake: 0.001,
+      maxStake: 10,
+      playersMax: 2,
+      status: 'Available',
+      contract_type: 'covenant_v2',
+      engine_required: false,
+      covenant_id: 'poker.covenant.axo'
+    },
+    {
+      id: 'blackjackv1',
+      name: 'Blackjack',
+      description: 'Player vs dealer, 21 wins',
+      emoji: '🃏',
+      category: 'Luck',
+      minStake: 0.001,
+      maxStake: 5,
+      playersMax: 2,
+      status: 'Available',
+      contract_type: 'covenant_v2',
+      engine_required: false,
+      covenant_id: 'blackjack.covenant.axo'
+    },
+    {
       id: 'rockpaperscissors',
       name: 'Rock Paper Scissors',
       description: 'Quick decision game',
@@ -153,4 +181,164 @@
           </div>
           <div class="htp-info-row">
             <span>Covenant:</span>
-            <span class="htp-covenant-id" title="${game.covenant_id || 'N/A'}"
+            <span class="htp-covenant-id" title="${game.covenant_id || 'N/A'}">${game.covenant_id ? game.covenant_id.split('.')[0] : 'N/A'}</span>
+          </div>
+        </div>
+      </div>`;
+    return card;
+  }
+
+  /**
+   * Start player count monitoring
+   */
+  function startPlayerCountMonitoring() {
+    if (!window.socketHandler) {
+      console.log('[HTP Lobby New Games] No socket handler, waiting...');
+      setTimeout(startPlayerCountMonitoring, 1000);
+      return;
+    }
+    
+    playerCountInterval = setInterval(() => {
+      updatePlayerCounts();
+    }, 5000);
+    console.log('[HTP Lobby New Games] Started player count monitoring');
+  }
+
+  /**
+   * Update player counts for all games
+   */
+  function updatePlayerCounts() {
+    if (!window.socketHandler || !window.socketHandler.getRooms) return;
+    
+    // Use the existing rooms API if available
+    const rooms = window.socketHandler.getRooms();
+    if (!rooms || !Array.isArray(rooms)) return;
+
+    newGames.forEach(game => {
+      const countEl = document.querySelector(`[data-game-id="${game.id}"]`);
+      if (!countEl) return;
+      
+      const room = rooms.find(r => r.room && (r.room.includes(game.name.toLowerCase()) || r.room.includes(game.gameType || '')));
+      const count = room ? (room.players || 0) : 0;
+      countEl.textContent = `${count} player${count !== 1 ? 's' : ''}`;
+    });
+  }
+
+  /**
+   * Update game availability based on WASM status
+   */
+  function updateGameAvailability() {
+    if (!isWasmLoaded) return;
+    
+    const cards = document.querySelectorAll('.htp-new-game-card');
+    cards.forEach((card, index) => {
+      const game = newGames[index];
+      if (game && game.engine_required !== false) {
+        // Mark as available when WASM is loaded for games that need engines
+        card.classList.add('available');
+      }
+    });
+  }
+
+  /**
+   * Handle game click/selection
+   */
+  function onGameSelect(game) {
+    console.log('[HTP Lobby New Games] Game selected:', game.name);
+    
+    if (!game) return;
+    
+    // Check if WASM is loaded
+    if (!isWasmLoaded && game.engine_required !== false) {
+      console.warn('[HTP Lobby New Games] WASM not loaded, cannot start', game.name);
+      showToast('Loading wallet engine...', 'warn');
+      return;
+    }
+    
+    // Show toast with game selected
+    showToast(`Selected ${game.name}`, 'info');
+    
+    // Use existing game creation flow if available
+    if (window.createMatch) {
+      // Set the game type in the UI
+      const gameSelect = document.querySelector('[data-game-selector]');
+      if (gameSelect) {
+        gameSelect.value = game.gameType || game.id;
+      }
+      
+      // Trigger match creation with appropriate defaults
+      const matchData = {
+        game: game.gameType || game.id,
+        stake: Math.max(game.minStake || 0.001, 0.01)
+      };
+      
+      window.createMatch(matchData);
+    } else {
+      // Fallback: show a join/create dialog
+      showGameDialog(game);
+    }
+  }
+
+  /**
+   * Show game join/create dialog (fallback)
+   */
+  function showGameDialog(game) {
+    if (!game) return;
+    
+    showToast(`${game.name} - coming soon to HTP`, 'success');
+  }
+
+  /**
+   * Show toast notification (fallback if not available)
+   */
+  function showToast(message, type) {
+    if (window.toast) {
+      window.toast(message, type);
+    } else {
+      console.log(`[HTP Lobby New Games] ${type.toUpperCase()}: ${message}`);
+    }
+  }
+
+  /**
+   * Init when DOM is ready
+   */
+  function waitForDOM() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initLobbyGames);
+    } else {
+      initLobbyGames();
+    }
+  }
+
+  /**
+   * Export functions to global scope
+   */
+  // Expose functions for external use
+  if (window.HTPLobby) {
+    window.HTPLobby.newGames = { 
+      initLobbyGames,
+      renderNewGames,
+      newGames 
+    };
+  } else {
+    window.HTPLobby = {
+      newGames: { 
+        initLobbyGames,
+        renderNewGames,
+        newGames
+      }
+    };
+  }
+
+  /**
+   * Auto-initialize when script loads
+   */
+  setTimeout(waitForDOM, 100);
+  
+  // Listen for when the lobby system is ready
+  window.addEventListener('htp:lobby:ready', () => {
+    console.log('[HTP Lobby New Games] Lobby system ready, initializing...');
+    initLobbyGames();
+  });
+
+})();
