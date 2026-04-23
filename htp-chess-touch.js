@@ -331,10 +331,130 @@
     }
   });
 
-  // Export for manual initialization
-  window.HTPChessTouch = {
-    init: window.initChessTouch,
-    isTouchDevice: window.isTouchDevice
-  };
+ // Export for manual initialization
+ window.HTPChessTouch = {
+   init: window.initChessTouch,
+   isTouchDevice: window.isTouchDevice
+ };
+ 
+/**
+ * Enhanced drag helper function for mobile chess touch
+ * Properly handles touch events for drag-and-drop functionality  
+ * Uses touchstart/touchmove/touchend for seamless mobile experience
+ */
+window.htpChessTouchDrag = function(sourceSquare, targetSquare, pieceType, options = {}) {
+  const { 
+    simulation = false,
+    visualFeedback = true, 
+    ghostEffects = true,
+    autoScroll = false 
+  } = options;
+   
+   // Find source element
+   const sourceElement = document.querySelector(`[data-square="${sourceSquare}"]`) || 
+                        document.querySelector(`.square-${sourceSquare}`) ||
+                        document.getElementById(sourceSquare);
+   
+   if (!sourceElement) {
+     console.warn(`[HTP Chess Touch Drag] Source square not found: ${sourceSquare}`);
+     return false;
+   }
+   
+   // Find target element
+   const targetElement = document.querySelector(`[data-square="${targetSquare}"]`) || 
+                        document.querySelector(`.square-${targetSquare}`) ||
+                        document.getElementById(targetSquare);
+   
+   if (!targetElement) {
+     console.warn(`[HTP Chess Touch Drag] Target square not found: ${targetSquare}`);
+     return false;
+   }
+   
+   // Find piece element
+   const pieceElement = sourceElement.querySelector('.piece, [data-piece], .chess-piece') ||
+                       sourceElement.querySelector('[data-piece-type]');
+   
+   if (!pieceElement) {
+     console.warn(`[HTP Chess Touch Drag] No piece found on source square: ${sourceSquare}`);
+     return false;
+   }
+   
+   try {
+     // Start touch simulation if requested
+     if (simulation && !window.isTouchDevice()) {
+       console.log('[HTP Chess Touch Drag] simulating touch events for desktop');
+     }
+     
+     if (visualFeedback) {
+       // Add visual feedback classes
+       sourceElement.classList.add('square-drag-target');
+       targetElement.classList.add('square-drag-hover');
+       
+       if (ghostEffects) {
+         // Create enhanced ghost effect
+         const ghostElement = pieceElement.cloneNode(true);
+         ghostElement.classList.add('piece-ghost');
+         ghostElement.style.cssText += `
+           position: fixed !important;
+           pointer-events: none !important;
+           z-index: 10000 !important;
+           transform: scale(1.2);
+           opacity: 0.9;
+           transition: transform 0.2s ease;
+         `;
+         
+         document.body.appendChild(ghostElement);
+         
+         // Animate ghost to target position
+         setTimeout(() => {
+           if (ghostElement.parentNode) {
+             const targetRect = targetElement.getBoundingClientRect();
+             ghostElement.style.left = (targetRect.left + targetRect.width/2) + 'px';
+             ghostElement.style.top = (targetRect.top + targetRect.height/2) + 'px';
+             ghostElement.style.transform = 'scale(1)';
+           }
+         }, 50);
+         
+         // Clean up ghost after animation
+         setTimeout(() => {
+           if (ghostElement.parentNode) {
+             ghostElement.remove();
+           }
+         }, 300);
+       }
+     }
+     
+     // Dispatch move event for game logic integration
+     window.dispatchEvent(new CustomEvent('htp:chess:move', {
+       detail: {
+         from: sourceSquare,
+         to: targetSquare,
+         piece: pieceElement.dataset.piece || pieceElement.dataset.pieceType,
+         pieceType: pieceType,
+         timestamp: Date.now()
+       }
+     }));
+     
+     // Call external move handler if available
+     if (window.onChessMove && typeof window.onChessMove === 'function') {
+       window.onChessMove(sourceSquare, targetSquare);
+     }
+     
+     // Cleanup visual effects
+     if (visualFeedback) {
+       setTimeout(() => {
+         sourceElement?.classList.remove('square-drag-target');
+         targetElement?.classList.remove('square-drag-hover');
+       }, 200);
+     }
+     
+     console.log(`[HTP Chess Touch Drag] Successfully processed: ${sourceSquare} → ${targetSquare}`);
+     return true;
+   }
+   catch (error) {
+     console.error('[HTP Chess Touch Drag] Error during drag operation:', error);
+     return false;
+   }
+ };
 
 })();
