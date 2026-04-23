@@ -108,6 +108,12 @@ window.HTPError = {
     const message = this.getMessage(error);
     const { duration = 5000, type = 'error', title = 'Error' } = options;
     
+    // Use error card styling if no notification system exists
+    if (!window.notify && !window.toast) {
+      this.showErrorCard(message, title);
+      return;
+    }
+    
     // Use the existing notification system if available
     if (window.notify && typeof window.notify === 'function') {
       window.notify(message, type);
@@ -119,6 +125,42 @@ window.HTPError = {
     }
     
     console.error(`[HTP Error] ${title}:`, message, error);
+  },
+
+  /**
+   * Show styled error card
+   * @param {string} message - Error message
+   * @param {string} title - Error title
+   * @param {Object} options - Display options
+   */
+  showErrorCard: function(message, title = 'Error', options = {}) {
+    const { container = document.body, autoClose = true, duration = 5000 } = options;
+    
+    // Create error card
+    const card = document.createElement('div');
+    card.className = 'htp-error-card';
+    card.innerHTML = `
+      <button class="htp-error-card-close" onclick="this.parentElement.remove()">&times;</button>
+      <div class="htp-error-card-title">
+        <span>⚠️</span>
+        <span>${title}</span>
+      </div>
+      <div class="htp-error-card-body">${message}</div>
+    `;
+    
+    // Insert at top of container
+    container.insertBefore(card, container.firstChild);
+    
+    // Auto-close after duration
+    if (autoClose) {
+      setTimeout(() => {
+        if (card.parentElement) {
+          card.remove();
+        }
+      }, duration);
+    }
+    
+    console.error(`[HTP Error Card] ${title}:`, message);
   },
 
   /**

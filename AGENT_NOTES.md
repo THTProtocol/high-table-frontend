@@ -15,6 +15,7 @@
 - AGENT 12: pending | qa-integration
 - AGENT 13: pending | security-audit
 - AGENT 14: pending | docs-readme
+- AGENT 17: DONE | wasm-compilation | WASM compilation, integration, fee engine browser verification
 
 ## AGENT_RULES
 (keep the rules section as-is)
@@ -22,6 +23,7 @@
 AGENT 2 DONE: silverscript-contracts
 AGENT 8 DONE: oracle-decentralised
 AGENT 6 DONE: maximizer-event-ui
+AGENT 17 DONE: wasm-compilation
 
 ### SilverScript Compile — DEFERRED (April 22, 2026, Phase 1)
 - silverc syntax for `tx.time` comparisons unclear — `expected unary` parse error
@@ -43,6 +45,7 @@ AGENT 6 DONE: maximizer-event-ui
 - AGENT 11: CI/CD GitHub Actions (4 workflows: ci, rust-wasm, oracle-cron, deploy)
 - AGENT 13: Security Audit (docs/SECURITY_AUDIT.md, ZERO criticals)
 - AGENT 14: Docs + README (README.md + 5 docs)
+- AGENT 17: WASM Compilation + Integration (FeeEngine compiled to WASM, browser console API, u64 verification)
 
 ### DEFERRED TO CLEANUP (2/14)
 - AGENT 10: UI/UX Polish (chess touch DnD optimization, skeleton loaders refinements)

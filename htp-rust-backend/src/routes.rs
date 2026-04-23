@@ -3,6 +3,7 @@ use axum::{
     Json,
 };
 use serde_json::json;
+use crate::{escrow, broadcast, types};
 
 fn stub_event_id() -> String {
     format!("evt_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
@@ -61,7 +62,65 @@ pub async fn backgammon_roll(Json(payload): Json<serde_json::Value>) -> Json<ser
 }
 
 pub async fn escrow_settle(Json(payload): Json<serde_json::Value>) -> Json<serde_json::Value> {
-    Json(json!({"ok": true, "route": "/api/escrow/settle", "tx_id": null, "received": payload}))
+    // Try to parse into the real payout request types
+    let escrow_req: types::EscrowPayoutRequest = match serde_json::from_value(payload.clone()) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("escrow_settle parse error: {}", e);
+            return Json(json!({
+                "ok": false,
+                "error": format!("Invalid payout request: {}", e),
+                "tx_id": null,
+            }));
+        }
+    };
+
+    // 1. Build the payout transaction
+    let payout_result = match escrow::build_payout(&escrow_req) {
+        Ok(tx) => tx,
+        Err(e) => {
+            tracing::error!("build_payout failed: {}", e);
+            return Json(json!({
+                "ok": false,
+                "error": format!("Payout construction failed: {}", e),
+                "tx_id": null,
+            }));
+        }
+    };
+
+    tracing::info!(
+        "escrow_settle: built payout tx_id={}",
+        payout_result.tx_id
+    );
+
+    // 2. Broadcast to network
+    let broadcast_req = types::BroadcastRequest {
+        raw_tx: payout_result.raw_tx.clone(),
+    };
+    let api_base = std::env::var("KASPA_API_BASE")
+        .unwrap_or_else(|_| "https://api-tn12.kaspa.org".to_string());
+
+    match broadcast::broadcast_tx(&broadcast_req, &api_base).await {
+        Ok(resp) => {
+            tracing::info!("escrow_settle: broadcast succeeded tx_id={}", resp.tx_id);
+            Json(json!({
+                "ok": true,
+                "route": "/escrow/settle",
+                "tx_id": resp.tx_id,
+                "constructed_tx_id": payout_result.tx_id,
+            }))
+        }
+        Err(e) => {
+            tracing::error!("broadcast_tx failed: {}", e);
+            // Return the constructed tx so the caller can retry manually
+            Json(json!({
+                "ok": false,
+                "error": format!("Broadcast failed: {}", e),
+                "constructed_tx_id": payout_result.tx_id,
+                "raw_tx": payout_result.raw_tx,
+            }))
+        }
+    }
 }
 
 pub async fn escrow_status(Path(id): Path<String>) -> Json<serde_json::Value> {

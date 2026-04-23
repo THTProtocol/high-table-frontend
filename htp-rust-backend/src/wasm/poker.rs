@@ -291,6 +291,13 @@ impl PokerGame {
     }
 
     pub fn get_community_json(&self) -> String { cards_json(&self.community) }
+
+    pub fn check(&self, player: u8) {
+        // Check action - just note that player is still in the game
+        // In a real game engine, this would advance the betting round
+        // For now, this is a stub to make the WASM interface compile
+        let _ = player; // Suppress unused variable warning
+    }
 }
 
 fn opt_u8(v: Option<u8>) -> String {

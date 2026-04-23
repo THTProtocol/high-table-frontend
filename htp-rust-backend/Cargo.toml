@@ -4,23 +4,18 @@ version = "0.1.0"
 edition = "2021"
 description = "High Table Protocol - Rust backend replacing WASM for native-speed transaction construction"
 
-[[bin]]
-name = "htp-backend"
-path = "src/main.rs"
+[lib]
+name = "htp_rust_backend"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
 
+# Core WASM-compatible dependencies
 [dependencies]
-# Async runtime
-tokio = { version = "1", features = ["full"] }
-
-# HTTP framework
-axum = { version = "0.7", features = ["macros"] }
-tower-http = { version = "0.5", features = ["cors"] }
-
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# HTTP client (Kaspa REST API + RPC)
+# HTTP client (Kaspa REST API + RPC) - with WASM features
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
 # Crypto primitives
@@ -34,24 +29,24 @@ hex = "0.4"
 bip39 = "2"
 
 # Logging
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+log = "0.4"
 
 # Error handling
 anyhow = "1"
 thiserror = "1"
 
-# Env
-dotenvy = "0.15"
-
-# Timestamps
-chrono = { version = "0.4", features = ["serde"] }
-
-# Random
+# Random with WASM support
 rand = "0.8"
+getrandom = { version = "0.2", features = ["js"] }
 
 # Base64
 base64 = "0.22"
+
+# WASM-specific dependencies
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = "0.3"
+console_error_panic_hook = "0.1"
 
 [profile.release]
 opt-level = 3

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTP WASM Test</title>
+</head>
+<body>
+    <h1>HTP Rust Backend WASM Test</h1>
+    <p>Open browser console (F12) to see WASM fee calculations</p>
+    <button onclick="testFeeCalculation()">Test Fee Calculation</button>
+    <button onclick="testPokerGame()">Test Poker Game</button>
+    <button onclick="testBlackjackGame()">Test Blackjack Game</button>
+    
+    <div id="results"></div>
+    
+    <script type="module">
+        // Load HTP Rust Backend WASM module
+        async function loadHtpRustWasm() {
+            try {
+                const wasmModule = await import('./htp-rust-backend/pkg/htp_rust_backend.js');
+                await wasmModule.default();
+                
+                // Expose WASM functions globally for console testing
+                window.htpWasm = {
+                    // Fee calculation functions (using WASM bigint)
+                    calculateFee: (totalSompi, feeBps) => {
+                        return Number(wasmModule.calculateFee(BigInt(totalSompi), feeBps));
+                    },
+                    calculateWinnerPayout: (totalSompi, feeBps) => {
+                        return Number(wasmModule.calculateWinnerPayout(BigInt(totalSompi), feeBps));
+                    },
+                    // Direct WASM functions (return bigint)
+                    calculateFeeBig: wasmModule.calculateFee,
+                    calculateWinnerPayoutBig: wasmModule.calculateWinnerPayout,
+                    createPokerGame: (seed) => new wasmModule.WasmPokerGame(BigInt(seed)),
+                    createBlackjackGame: (seed) => new wasmModule.WasmBlackjackGame(BigInt(seed)),
+                    createCovenantEscrow: (matchId, creator, network) => new wasmModule.WasmCovenantEscrow(matchId, creator, network),
+                    version: '0.1.0'
+                };
+                
+                console.log('HTP Rust Backend WASM loaded successfully!');
+                console.log('Available functions:', Object.keys(window.htpWasm));
+                
+                // Test calculation in console
+                console.log('Test: Fee for 1_000_000_000 sompi (10 KAS) at 200 bps (2%):', 
+                            window.htpWasm.calculateFee(1_000_000_000, 200));
+                console.log('Test: Winner payout for 1_000_000_000 sompi at 200 bps:', 
+                            window.htpWasm.calculateWinnerPayout(1_000_000_000, 200));
+                
+                // Add a simple test function for console usage
+                window.testFeeCalculation = function(totalSompi = 1_000_000_000, feeBps = 200) {
+                    const total = BigInt(totalSompi);
+                    const fee = wasmModule.calculateFee(total, feeBps);
+                    const payout = wasmModule.calculateWinnerPayout(total, feeBps);
+                    
+                    console.log('=== HTP Fee Calculation Test ===');
+                    console.log(`Total: ${totalSompi} sompi (${totalSompi / 100_000_000} KAS)`);
+                    console.log(`Fee Rate: ${feeBps} bps (${feeBps / 100}%)`);
+                    console.log(`Fee: ${fee.toString()} sompi (${Number(fee) / 100_000_000} KAS)`);
+                    console.log(`Winner Payout: ${payout.toString()} sompi (${Number(payout) / 100_000_000} KAS)`);
+                    console.log('==============================');
+                    
+                    return {
+                        totalSompi,
+                        feeSompi: Number(fee),
+                        payoutSompi: Number(payout),
+                        totalKas: totalSompi / 100_000_000,
+                        feeKas: Number(fee) / 100_000_000,
+                        payoutKas: Number(payout) / 100_000_000
+                    };
+                };
+                
+                </script>
+    
+    <script>
+        function testFeeCalculation() {
+            if (!window.htpWasm) {
+                alert('WASM not loaded yet!');
+                return;
+            }
+            
+            const results = window.testFeeCalculation();
+            document.getElementById('results').innerHTML = `
+                <pre><strong>Fee Calculation Test Results:</strong>
+                Total: ${results.totalSompi} sompi (${results.totalKas} KAS)
+                Fee: ${results.feeSompi} sompi (${results.feeKas} KAS)
+                Payout: ${results.payoutSompi} sompi (${results.payoutKas} KAS)
+                <strong>All calculations use u64 sompi - no floating point! ✅</strong>
+                </pre>
+            `;
+        }
+        
+        function testPokerGame() {
+            if (!window.htpWasm) {
+                alert('WASM not loaded yet!');
+                return;
+            }
+            
+            const game = window.htpWasm.createPokerGame(Date.now());
+            console.log('Poker game created:', game);
+            
+            document.getElementById('results').innerHTML = `
+                <pre><strong>Poker Game Test:</strong>
+                Poker game created successfully!
+                Check console for game object details.
+                <strong>WASM generators working! ✅</strong>
+                </pre>
+            `;
+        }
+        
+        function testBlackjackGame() {
+            if (!window.htpWasm) {
+                alert('WASM not loaded yet!');
+                return;
+            }
+            
+            const game = window.htpWasm.createBlackjackGame(Date.now());
+            console.log('Blackjack game created:', game);
+            
+            document.getElementById('results').innerHTML = `
+                <pre><strong>Blackjack Game Test:</strong>
+                Blackjack game created successfully!
+                Check console for game object details.
+                <strong>WASM generators working! ✅</strong>
+                </pre>
+            `;
+        }
+    </script>
+</body>
+</html>

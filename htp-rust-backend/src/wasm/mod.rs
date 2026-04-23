@@ -31,6 +31,18 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+pub fn calculate_fee(total_sompi: u64, fee_bps: u32) -> u64 {
+    FeeEngine::calculate_fee_sompi(total_sompi, fee_bps)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn calculate_winner_payout(total_sompi: u64, fee_bps: u32) -> u64 {
+    FeeEngine::winner_payout_sompi(total_sompi, fee_bps)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 pub struct WasmCovenantEscrow {
     inner: CovenantEscrow,
 }
