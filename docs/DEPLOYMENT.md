@@ -21,12 +21,33 @@ curl -sf http://localhost:8765/ | grep -qi "high table"
 
 ## Environment Variables
 
-| Variable | Purpose | Default |
+| Variable | Purpose | Example |
 |----------|---------|---------|
 | `KASPA_NETWORK` | mainnet or testnet-12 | testnet-12 |
 | `KASPA_API_BASE` | REST API endpoint | https://api-tn12.kaspa.org |
-| `FIREBASE_TOKEN` | Firebase auth token | (GitHub secret) |
-| `ATTESTOR_KEY` | Oracle signing key | (GitHub secret, optional) |
+| `FIREBASE_API_KEY` | Firebase auth API key | (GitHub secret - never commit) |
+| `FIREBASE_PROJECT_ID` | Firebase project identifier | hightable420 |
+| `ORACLE_PRIVATE_KEY` | Oracle signing key | (GitHub secret - never log actual value) |
+| `KASPA_RPC_URL` | RPC endpoint resolver pattern | https://api.mainnet.kaspa.org |
+
+## Environment Variables Reference
+
+### Critical Security Notes
+
+- **ORACLE_PRIVATE_KEY**: NEVER log actual values. Use rotation policies. Store in secure secrets manager.
+- **FIREBASE_API_KEY**: While not as sensitive as private keys, keep out of public repos. Rotate quarterly.
+- **KASPA_RPC_URL**: Supports failover - use comma-separated endpoints for resolver pattern (e.g., `https://api1.kaspa.org,https://api2.kaspa.org`)
+
+### Local Development
+
+Copy `.env.example` to `.env` and populate with:
+
+```
+KASPA_NETWORK=testnet-12
+KASPA_API_BASE=https://api-tn12.kaspa.org
+FIREBASE_PROJECT_ID=hightable420
+# Add secrets via: export ORACLE_PRIVATE_KEY=...
+```
 
 ## Firebase Deploy
 
@@ -45,9 +66,9 @@ Workflows in `.github/workflows/`:
 - `oracle-cron.yml` — run oracle every 5 minutes
 - `deploy.yml` — auto-deploy on main merge
 
-Secrets required:
-- `FIREBASE_TOKEN`
-- `ATTESTOR_KEY` (optional for Phase 1)
+## Secrets required:
+- `FIREBASE_API_KEY`
+- `ORACLE_PRIVATE_KEY` (optional for Phase 1)
 
 ## Server Port Rules
 

@@ -1,73 +1,24 @@
 # Decentralisation Roadmap
 
-## Phase 1: Now (TN12, April 2026)
+## Phase 1 (TN12 Toccata — NOW):
+- [x] All 9 games live
+- [x] Covenant escrow v2
+- [x] Oracle daemon
+- [x] Firebase bridge
+- [x] CI/CD pipeline
+- [x] WASM compiled + browser verified (Agent 17)
+- [x] UI/UX polish (Agent 10)
+- [ ] QA all green (Agent 12)
+- [ ] Security review sign-off
 
-- KIP-17 custody opcodes live
-- KIP-20 covenant IDs with lineage tracking
-- Firebase bridge for game-state coordination (temporary)
-- On-chain anchors: every escrow record = covenant_id + tx_hash + block_daa_score
-- 1 attestation oracle (N=1, M=1)
-- Rust WASM fee engine + covenant escrow
-
-**Design Rule:** Never ship code that blocks Phase 2/3.
-
-## Phase 2: Mainnet (June 2026)
-
-### Concrete June 2026 Mainnet Checklist
-
-- [ ] **Attestor Onboarding (#4)**
-  - [ ] Attestor registration and key generation ceremony
-  - [ ] Multi-sig wallet setup with M-of-N threshold configuration
-  - [ ] Attestor dashboard and monitoring tools
-  - [ ] Backup and recovery procedures documentation
-
-- [ ] **Threshold Key Ceremony**
-  - [ ] M-of-N threshold signature implementation (multisig.rs stub ✅)
-  - [ ] Distributed key generation ceremony
-  - [ ] Key rotation and recovery mechanisms
-  - [ ] Threshold signing protocol testing
-
-- [ ] **Covenant Hash Anchoring**
-  - [ ] On-chain covenant state hash recording
-  - [ ] State verification against Firebase bridge
-  - [ ] Hash aggregation and anchoring to mainnet blocks
-  - [ ] State transition validation
-
-- [ ] **Groth16 Proof Verification**
-  - [ ] ZK circuit design for oracle outcomes
-  - [ ] Proof generation infrastructure
-  - [ ] On-chain proof verification (zk_pipeline.rs ready)
-  - [ ] Integration with covenant spend paths
-
-- [ ] **Mainnet RPC Endpoint Migration**
-  - [ ] Production RPC endpoint configuration
-  - [ ] Load balancing and failover setup
-  - [ ] Transaction propagation monitoring
-  - [ ] RPC rate limiting and security
-
-- [ ] **Fee Engine Audit**
-  - [ ] Comprehensive fee calculation testing
-  - [ ] Edge case handling verification
-  - [ ] Performance benchmarking
-  - [ ] Documentation and deployment guide
-
-- [ ] **Security Re-audit**
-  - [ ] Full codebase security review
-  - [ ] M-of-N threshold signing security analysis
-  - [ ] Covenant escrow vulnerability assessment
-  - [ ] Penetration testing and threat modeling
-
-- [ ] **Frontend WASM-only Fee Calculation**
-  - [ ] Complete WASM migration for fee calculations
-  - [ ] Browser-side fee validation
-  - [ ] Fallback mechanisms for fee calculation
-  - [ ] User experience testing
-
-- [ ] **Public Beta Launch**
-  - [ ] Beta testing program launch
-  - [ ] User feedback collection and iteration
-  - [ ] Performance monitoring and optimization
-  - [ ] Bug tracking and resolution process
+## Phase 2 (Mainnet — Target June 2026):
+- [ ] KIP-17 covenant audit by external auditor
+- [ ] M-of-N attestor network (3-of-5 minimum)
+- [ ] ZK proof integration (Groth16 via KIP-16)
+- [ ] Decentralized oracle (remove Firebase dependency)
+- [ ] Token launch: HTP governance token
+- [ ] Mainnet deployment + DNS cutover
+- [ ] Bug bounty program live
 
 ## Phase 3: vprogs (Late 2026)
 
