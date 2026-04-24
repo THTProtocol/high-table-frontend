@@ -267,3 +267,106 @@ window.HTPFee.skillGameSettle(100000000n) // 1 KAS stake
 *Run: `tests/qa-smoke-test.sh`*
 
 ```
+---
+
+## Smoke Test Output
+
+*Run: `./tests/qa-smoke-test.sh`*
+
+```
+=== HTP QA Smoke Test ===
+Date: Fri Apr 24 08:21:16 CEST 2026
+Server: localhost:8765
+
+1. Testing server response...
+✅ Server running: PASS
+
+2. Checking core JS files...
+✅ Core file: htp-fee-engine.js: PASS
+✅ Core file: htp-oracle-sync.js: PASS
+✅ Core file: htp-covenant-escrow-v2.js: PASS
+✅ Core file: htp-firebase-bridge.js: PASS
+✅ Core file: htp-wallet-v3.js: PASS
+
+3. Checking game UI files...
+✅ Game UI: htp-chess-ui.js: PASS
+✅ Game UI: htp-checkers-multijump.js: PASS
+✅ Game UI: htp-c4-animation.js: PASS
+✅ Game UI: htp-backgammon-ui.js: PASS
+✅ Game UI: htp-rps-ui.js: PASS
+✅ Game UI: htp-coinflip-ui.js: PASS
+✅ Game UI: htp-wordduel-ui.js: PASS
+✅ Game UI: htp-poker-ui.js: PASS
+✅ Game UI: htp-blackjack-ui.js: PASS
+
+4. Checking WASM bridge...
+✅ WASM file exists: PASS
+
+5. Verifying fee engine exports...
+✅ Fee engine exports: PASS
+
+6. Verifying WASM bridge integration...
+✅ WASM bridge exports: PASS
+
+=== SMOKE TEST SUMMARY ===
+✅ Passed: 18
+❌ Failed: 0
+
+🎉 ALL SMOKE TESTS PASSED
+```
+
+---
+
+## P1 Checklist Reference (from tests/qa-p1-checklist.md)
+
+### Status Annotations
+
+| Section | Test | Status |
+|---------|------|--------|
+| 1. Wallet Connection | 1.1 Connection Flow | ❌ BLOCKED: requires manual browser testing |
+| 1. Wallet Connection | 1.2 Multiple Wallet Support | ❌ BLOCKED: requires 2 browser sessions |
+| 2. Game Creation | 2.1 Chess | ❌ BLOCKED: requires wallet connection |
+| 2. Game Creation | 2.2 Checkers | ❌ BLOCKED: requires wallet connection |
+| 2. Game Creation | 2.3 Connect4 | ❌ BLOCKED: requires wallet connection |
+| 2. Game Creation | 2.4 Backgammon | ❌ BLOCKED: requires wallet connection |
+| 2. Game Creation | 2.5 Simple Games | ❌ BLOCKED: requires wallet connection |
+| 2. Game Creation | 2.6 Invalid Creation | ❌ BLOCKED: requires wallet connection |
+| 3. Match Join Flow | 3.1 Successful Join | ❌ BLOCKED: requires 2 players |
+| 3. Match Join Flow | 3.2 Duplicate Join Prevention | ❌ BLOCKED: requires wallet testing |
+| 3. Match Join Flow | 3.3 Join Timeout | ❌ BLOCKED: requires Firebase connection |
+| 4. Covenant Escrow | 4.1 Escrow Creation | ❌ BLOCKED: requires wallet connection |
+| 4. Covenant Escrow | 4.2 Spend Path Verification | ❌ BLOCKED: requires oracle attestation |
+| 4. Covenant Escrow | 4.3 Cancel Flow | ❌ BLOCKED: requires wallet connection |
+| 5. Fee Engine | 5.1 Integer-Only Operations | ✅ PASS: code verified |
+| 5. Fee Engine | 5.2 Maximizer Fee Logic | ❌ BLOCKED: requires event creation |
+| 5. Fee Engine | 5.3 Treasury Address | ✅ PASS: code verified |
+| 6. Oracle Attestation | 6.1 Deterministic Signing | ❌ BLOCKED: requires oracle daemon |
+| 6. Oracle Attestation | 6.2 Oracle Timeout | ❌ BLOCKED: requires oracle daemon |
+| 7. Firebase Bridge | 7.1 Timeout Watcher | ❌ BLOCKED: requires Firebase connection |
+| 7. Firebase Bridge | 7.2 Real-time Sync | ❌ BLOCKED: requires 2 player sessions |
+| 8. Settlement Overlay | 8.1 Winner Display | ❌ BLOCKED: requires game completion |
+| 8. Settlement Overlay | 8.2 Draw Display | ❌ BLOCKED: requires game completion |
+| 9. Deposit/Withdraw/Pause | 9.1 Deposit | ❌ BLOCKED: requires wallet connection |
+| 9. Deposit/Withdraw/Pause | 9.2 Withdraw | ❌ BLOCKED: requires wallet connection |
+| 9. Deposit/Withdraw/Pause | 9.3 Pause/Resume | ❌ BLOCKED: requires admin access |
+| 10. Error Handling | 10.1 Insufficient Balance | ✅ PASS: error handling verified |
+| 10. Error Handling | 10.2 Network Errors | ❌ BLOCKED: requires network simulation |
+| 10. Error Handling | 10.3 Invalid Input | ✅ PASS: input validation verified |
+
+---
+
+## GitHub Issues for FAIL/BLOCKED Tests
+
+| Issue Title | Related Test |
+|-------------|--------------|
+| QA BLOCKED: Wallet connection needs manual testing | a |
+| QA BLOCKED: Chess skill game flow requires manual testing | b |
+| QA BLOCKED: Event maximizer fee split paths require manual testing | c |
+| QA BLOCKED: RPS commit-reveal requires manual cryptographic testing | d |
+| QA BLOCKED: Coinflip block hash entropy requires manual testing | e |
+| QA BLOCKED: WordDuel requires manual testing | f |
+| QA BLOCKED: Poker multi-stage flow requires manual testing | g |
+| QA BLOCKED: Blackjack interactivity requires manual testing | h |
+| QA BLOCKED: Firebase timeout watcher requires manual testing | i |
+| QA BLOCKED: Oracle signing requires manual daemon testing | j |
+
