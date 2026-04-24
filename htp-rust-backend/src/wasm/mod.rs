@@ -25,6 +25,11 @@ encode_covenant_id_kip20, CovenantEscrow, CovenantId, CovenantSpend,
 };
 pub use fee_engine::FeeEngine;
 
+#[cfg(target_arch = "wasm32")]
+use js_sys::Array;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
+
 // WASM FFI exports for JavaScript interop
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -86,6 +91,79 @@ impl WasmCovenantEscrow {
     pub fn set_deadline(&mut self, deadline_block: u64) {
         self.inner.set_deadline(deadline_block);
     }
+
+    #[wasm_bindgen(js_name = canCancel)]
+    pub fn can_cancel(&self) -> bool {
+        self.inner.can_cancel()
+    }
+}
+
+// NEW: WASM bindgen exports for Agent 17
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = "skillWinPot")]
+pub fn skill_win_pot(sompi: u64) -> Array {
+    let (winner, fee) = FeeEngine::skill_win(sompi);
+    let arr = Array::new();
+    arr.push(&JsValue::from_f64(winner as f64));
+    arr.push(&JsValue::from_f64(fee as f64));
+    arr
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = "hedgeClaim")]
+pub fn hedge_claim(sompi: u64) -> Array {
+    let (payout, fee) = FeeEngine::hedge_claim(sompi);
+    let arr = Array::new();
+    arr.push(&JsValue::from_f64(payout as f64));
+    arr.push(&JsValue::from_f64(fee as f64));
+    arr
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = "eventWinStdStake")]
+pub fn event_win_std_stake(sompi: u64, odds_num: u64, odds_den: u64) -> Array {
+    let (winner, fee) = FeeEngine::event_win_std(sompi, odds_num, odds_den);
+    let arr = Array::new();
+    arr.push(&JsValue::from_f64(winner as f64));
+    arr.push(&JsValue::from_f64(fee as f64));
+    arr
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = "boardApplyMove")]
+pub fn board_apply_move(state_json: &str, move_san: &str) -> String {
+    // Deserialize or create default GameState
+    let mut state = match serde_json::from_str::<GameState>(state_json) {
+        Ok(s) => s,
+        Err(_) => {
+            GameState {
+                game_type: crate::wasm::board_engine::GameType::Chess,
+                fen_or_state: state_json.to_string(),
+                player_index: 0,
+                move_history: Vec::new(),
+                turn_count: 0,
+                is_complete: false,
+                winner_index: None,
+            }
+        },
+    };
+    // Run move validation
+    let res = state.apply_move(move_san);
+    // Serialize state back
+    serde_json::to_string(&(serde_json::json!({
+        "fen_or_state": state.fen_or_state,
+        "player_index": state.player_index,
+        "move_history": state.move_history,
+        "turn_count": state.turn_count,
+        "is_complete": state.is_complete,
+        "winner_index": state.winner_index,
+        "validation_result": match res {
+            ValidationResult::Valid => "Valid",
+            ValidationResult::Invalid(s) => "Invalid",
+            ValidationResult::Winner(n) => "Winner",
+            ValidationResult::Draw => "Draw",
+        },
+    }))).unwrap()
 }
 
 #[cfg(target_arch = "wasm32")]

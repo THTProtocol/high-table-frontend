@@ -122,14 +122,18 @@ pub struct HedgeUtxo {
 /// Spend input reference.
 pub struct CovenantSpend {
     pub path: SpendPath,
-    pub winner_pubkey_hex: Option<String>,       // Winner path
-    pub attestor_sig_hex: Option<String>,        // Winner path (M-of-N Phase 2 ready)
-    pub winner_sig_hex: Option<String>,          // Winner path
-    pub creator_sig_hex: Option<String>,          // Cancel path
-    pub current_block: u64,                       // Deadline / Leave
+    pub winner_pubkey_hex: Option<String>, // Winner path
+    pub attestor_sig_hex: Option<String>,  // Winner path (M-of-N Phase 2 ready)
+    pub winner_sig_hex: Option<String>,    // Winner path
+    pub creator_sig_hex: Option<String>,   // Cancel path
+    pub current_block: u64,                // Deadline / Leave
 }
 
 impl CovenantEscrow {
+    /// Check if escrow can be canceled (pre-join, no opponent set)
+    pub fn can_cancel(&self) -> bool {
+        self.opponent_pubkey.is_none()
+    }
     /// Create a new covenant escrow.
     pub fn new(match_id: &str, creator_pubkey_hex: &str, network: &str) -> Result<Self, String> {
         let creator = hex_decode(creator_pubkey_hex)?;
