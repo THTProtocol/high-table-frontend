@@ -5,7 +5,7 @@
 use std::vec::Vec;
 use std::string::String;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum GameType {
     Chess,
     Checkers,
@@ -25,6 +25,7 @@ pub enum ValidationResult {
 }
 
 /// Generic board state.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct GameState {
     pub game_type: GameType,
     pub fen_or_state: String,

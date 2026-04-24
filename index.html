@@ -6762,7 +6762,10 @@ event MyMarket {
   
   <!-- Kaspa WASM SDK (must load BEFORE wasm-loader) -->
   <script src="kaspa-wasm-sdk-inline.js"></script>
-  
+
+  <!-- HTP WASM Bridge (loads after kaspa-wasm-sdk) -->
+  <script type="module" src="htp-wasm-bridge.js"></script>
+
   <!-- HTP Core -->
   <script src="htp-init.js"></script>
   <script src="htp-wasm-loader.js"></script>
