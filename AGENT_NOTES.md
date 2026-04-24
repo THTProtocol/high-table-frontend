@@ -77,3 +77,4 @@ AGENT 10 DONE: UI/UX polish — skeleton loaders, responsive media query, mobile
 • Improved error cards with dark glass aesthetic in htp-error-messages.js
 • Added mobile-friendly navigation classes, touch feedback, and modal sizing
 • All additions follow chip-style aesthetic with muted borders and glow accents
+AGENT 17 DONE: wasm-compilation
