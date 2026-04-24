@@ -49,6 +49,24 @@ FIREBASE_PROJECT_ID=hightable420
 # Add secrets via: export ORACLE_PRIVATE_KEY=...
 ```
 
+## Firebase Setup
+
+The following Firebase configuration files must exist in the repo root:
+
+- `.firebaserc` - Project alias configuration (project ID: hightable420)
+- `firebase.json` - Hosting site, headers, rewrites, and database rules reference
+- `database.rules.json` - Realtime Database security rules
+
+### Database Rules Verification
+
+Current rules enforce:
+- Escrow data requires `covenant_id` (≥64 chars) and `tx_hash` fields
+- Players validated with `joined` and `ts` timestamps
+- Results readable publicly, writable only by authenticated users
+- Root read allowed publicly; write requires auth or `allowPublic=true`
+
+**SECURITY NOTE:** For production, consider tightening root `.read` and `.write` to `auth != null` only.
+
 ## Firebase Deploy
 
 ```bash
@@ -56,7 +74,13 @@ firebase login --no-localhost
 firebase projects:list
 firebase use hightable420
 firebase deploy --only hosting
+firebase deploy --only database
 ```
+
+**Note:** If `firebase login` is not available or interactive auth fails, deploy manually via Firebase Console:
+1. Go to https://console.firebase.google.com/project/hightable420
+2. Navigate to Realtime Database → Rules → Publish
+3. Deploy hosting via GitHub Actions or manual `firebase deploy --token "$TOKEN"`
 
 ## CI/CD (GitHub Actions)
 
