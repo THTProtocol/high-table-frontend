@@ -2,7 +2,7 @@
 
 ## FINAL STATUS — HTP v1.0.0-toccata (April 24, 2026)
 
-### COMPLETED AGENTS (14/14)
+### COMPLETED AGENTS (15/15)
 ✅ AGENT 1: Covenant Escrow Rust (10 wasm modules, CovenantEscrow with all spend paths)
 ✅ AGENT 2: Silverscript Contracts (5 .silverscript files + compile script)
 ✅ AGENT 3: Rust Attestor (attestor/ mod.rs, broadcast.rs, firebase_listener.rs, multi_sig.rs)
@@ -19,6 +19,7 @@
 ✅ AGENT 14: Docs + README (README.md + 5 docs)
 ✅ AGENT 17: WASM Compilation + Integration (FeeEngine compiled to WASM, browser console API, u64 verification)
 ✅ AGENT 18: Phase 2 Prep (docs/MAINNET_LAUNCH.md, updated PHASES.md, multisig.rs updates)
+✅ AGENT 20: Firebase + Deployment Verification (DB rules checked, DEPLOYMENT.md env var ref verified, hardcoded secrets: none)
 
 ⬜ PHASE 2 items deferred to June 2026 (see docs/PHASES.md)
 

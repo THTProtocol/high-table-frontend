@@ -79,8 +79,25 @@ firebase deploy --only database
 
 **Note:** If `firebase login` is not available or interactive auth fails, deploy manually via Firebase Console:
 1. Go to https://console.firebase.google.com/project/hightable420
-2. Navigate to Realtime Database → Rules → Publish
+2. Navigate to Realtime Database → Rules → Publish  
 3. Deploy hosting via GitHub Actions or manual `firebase deploy --token "$TOKEN"`
+
+## Webapp Deployment Verification
+
+**Site:** https://hightable420.web.app
+
+To verify deployment manually:
+```bash
+# Check HTTP response
+curl -sfI https://hightable420.web.app
+
+# Check DNS resolution  
+nslookup hightable420.web.app
+
+# Browser verification: Open site and check network tab for WASM downloads
+```
+
+**Note:** Automated reachability testing blocked in environment. Manual verification recommended.
 
 ## CI/CD (GitHub Actions)
 
