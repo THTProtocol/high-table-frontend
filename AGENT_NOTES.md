@@ -79,3 +79,4 @@ AGENT 10 DONE: UI/UX polish — skeleton loaders, responsive media query, mobile
 • All additions follow chip-style aesthetic with muted borders and glow accents
 AGENT 17 DONE: wasm-compilation
 AGENT 18 DONE: phase2-prep
+AGENT 12 DONE: qa-integration
