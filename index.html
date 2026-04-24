@@ -6744,6 +6744,160 @@ event MyMarket {
             background: rgba(73, 232, 194, 0.1) !important;
           }
 
+        /* ============================================
+           UI/UX POLISH: Toast Notifications, Spinners,
+           Wallet Pulse, Responsive Lobby Grid
+           ============================================ */
+
+        /* --- Toast Notifications --- */
+        .htp-toast {
+            position: fixed;
+            top: 20px;
+            right: -400px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            background: rgba(6,10,22,0.95);
+            border: 1px solid rgba(73,232,194,0.3);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(73,232,194,0.15);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 500;
+            max-width: 320px;
+            z-index: 10000;
+            transition: right 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .htp-toast-show {
+            right: 20px;
+        }
+
+        .htp-toast-hiding {
+            right: -400px;
+        }
+
+        .htp-toast-success {
+            border-color: rgba(34,197,94,0.5);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(34,197,94,0.2);
+        }
+
+        .htp-toast-error {
+            border-color: rgba(239,68,68,0.5);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(239,68,68,0.2);
+        }
+
+        .htp-toast-info {
+            border-color: rgba(73,232,194,0.5);
+        }
+
+        .htp-toast-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 8px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .htp-toast-close:hover {
+            opacity: 1;
+            color: var(--text);
+        }
+
+        /* --- Button Spinner --- */
+        .htp-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(73,232,194,0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: htp-spin 0.8s linear infinite;
+        }
+
+        @keyframes htp-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- Wallet Connect Pulse Animation --- */
+        @keyframes wallet-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(73,232,194,0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(73,232,194,0); }
+            100% { box-shadow: 0 0 0 0 rgba(73,232,194,0); }
+        }
+
+        .wallet-connect-pulse {
+            animation: wallet-pulse 2s ease-out infinite;
+        }
+
+        /* --- Responsive Lobby Grid @media --- */
+        @media (max-width: 1024px) {
+            .games-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 14px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .games-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .lobby-card {
+                min-height: auto;
+                padding: 16px;
+            }
+
+            .lobby-card .game-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .lobby-card .actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .lobby-card .actions button {
+                width: 100%;
+            }
+
+            .lobby-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .lobby-filters {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .games-grid {
+                gap: 8px;
+            }
+
+            .lobby-card {
+                padding: 12px;
+            }
+
+            .pagination-controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+
     </style>
 
 
@@ -6798,11 +6952,12 @@ event MyMarket {
   <script src="htp-zk-pipeline.js"></script>
  <script src="htp-oracle-sync.js"></script>
  
- <!-- HTP Events -->
- <script src="htp-events.js"></script>
- <script src="htp-events-v3.js"></script>
- <script src="htp-event-creator.js"></script>
- <script src="htp-error-messages.js"></script>
+<!-- HTP Events -->
+<script src="htp-events.js"></script>
+<script src="htp-events-v3.js"></script>
+<script src="htp-event-creator.js"></script>
+<script src="htp-ui-polish.js"></script>
+<script src="htp-error-messages.js"></script>
  <script src="htp-skeleton-loader.js"></script>
  <script src="htp-chess-touch.js"></script>
  

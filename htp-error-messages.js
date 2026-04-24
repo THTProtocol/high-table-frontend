@@ -114,6 +114,12 @@ window.HTPError = {
       return;
     }
     
+    // Use the HTP toast system if available (from htp-ui-polish.js)
+    if (window.htpShowToast && typeof window.htpShowToast === 'function') {
+      window.htpShowToast(message, type, Math.floor(duration / 1000));
+      return;
+    }
+    
     // Use the existing notification system if available
     if (window.notify && typeof window.notify === 'function') {
       window.notify(message, type);
