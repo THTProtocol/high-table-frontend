@@ -4203,6 +4203,7 @@ html,body{background:#010806!important;}
                                     <div class="hero-cta">
                                         <button class="cta1" onclick="go('markets')">Explore Markets</button>
                                         <button class="cta2" onclick="go('create')">Create Event</button>
+<button class="btn btn-primary" onclick="showView('v-games')" style="margin:0.5rem;padding:0.75rem 2rem;font-size:1rem;border-radius:8px;background:var(--accent,#00ffa3);color:#000;border:none;cursor:pointer;font-weight:700">🎮 Play Games</button>
                                         <button class="cta2" onclick="go('kaspa')">Why Kaspa</button>
                                     </div>
                                 </div>
@@ -23039,5 +23040,49 @@ window.addEventListener('htp:balance:updated', function(e) {
 <script src="htp-config.js"></script>
 <script src="htp-game-router.js"></script>
 <script src="lobby-new-games.js"></script>
+
+<script>
+// Patch: wire all buttons and nav for games sections
+(function(){
+  var origShowView = window.showView;
+  window.showView = function(id) {
+    // Hide all views
+    document.querySelectorAll('section.view').forEach(function(s){s.classList.remove('show');});
+    // Show target
+    var el = document.getElementById(id);
+    if (el) el.classList.add('show');
+    // Update nav active state
+    document.querySelectorAll('.nav-link').forEach(function(a){a.classList.remove('active');});
+    var navLink = document.querySelector('[data-view="'+id+'"]');
+    if (navLink) navLink.classList.add('active');
+    // Close mobile menu if open
+    var menu = document.getElementById('mobile-menu') || document.querySelector('.nav-drawer');
+    if (menu) menu.classList.remove('open','show');
+    // Scroll to top
+    window.scrollTo(0,0);
+  };
+
+  // Wire all buttons that currently do nothing
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('button, a');
+    if (!btn) return;
+    var text = btn.textContent.trim();
+    // Map button labels to views
+    var map = {
+      'Explore Markets': 'v-markets',
+      'Browse Markets': 'v-markets',
+      'View All': 'v-markets',
+      'Create Event': 'v-create',
+      'Play Games': 'v-games',
+      'Games': 'v-games'
+    };
+    if (map[text] && !btn.getAttribute('onclick')) {
+      e.preventDefault();
+      showView(map[text]);
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
