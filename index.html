@@ -5089,7 +5089,7 @@ event MyMarket {
                         <div style="font-size:11px;font-weight:700;color:rgba(73,232,194,.65);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Select Game</div>
                     </div>
 
-                    <div class="sgv2-gpick" id="sgGamePicker" style="gap:14px">
+                    <div class="sgv2-gpick" id="sgGamePicker" style="display:none!important" style="gap:14px">
                         <button type="button" class="sg-gbtn" data-game="chess" style="padding:20px 10px 16px;gap:10px">
                             <span class="sg-ico" style="color:#fff;font-size:40px">♞</span>
                             <span class="sg-lbl" style="font-size:11px">Chess</span>
@@ -5107,8 +5107,8 @@ event MyMarket {
                             <span class="sg-lbl" style="font-size:11px">Tic-Tac-Toe</span>
                         </button>
                     </div>
-<div class="sg-gbtn" data-game="poker">&#127183; Poker</div>
-<div class="sg-gbtn" data-game="blackjack">&#127137; Blackjack</div>
+
+
 
                     <script>(function(){var btns=document.querySelectorAll('#sgGamePicker .sg-gbtn'),sel=document.getElementById('sgGame');function act(g){btns.forEach(function(b){var on=b.getAttribute('data-game')===g;b.classList.toggle('act',on);});}btns.forEach(function(b){b.addEventListener('click',function(){sel.value=b.getAttribute('data-game');sel.dispatchEvent(new Event('change'));act(sel.value);});});})();</script>
 
@@ -22365,6 +22365,28 @@ window.addEventListener('htp:balance:updated', function(e) {
     }
     if (origCreateMatch) return origCreateMatch();
   };
+})();
+</script>
+
+
+<script>
+(function(){
+  // When any sg-card is clicked, make sure the create form is visible
+  document.querySelectorAll('.sg-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      // Show the skill view if not already showing
+      var skillSection = document.getElementById('v-skill');
+      if (skillSection && !skillSection.classList.contains('show')) {
+        if (window.go) go('skill');
+        else if (window.showView) showView('v-skill');
+      }
+      // Scroll to creation form
+      setTimeout(function(){
+        var form = document.getElementById('sgCreateForm');
+        if (form) form.scrollIntoView({behavior:'smooth', block:'start'});
+      }, 100);
+    });
+  });
 })();
 </script>
 
