@@ -3926,18 +3926,6 @@ body::before {
   display: none !important;
 }
 
-.game-card{background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:12px;padding:1.5rem;cursor:pointer;transition:all .2s;text-align:center}
-.game-card:hover{border-color:var(--accent,#00ffa3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,255,163,.1)}
-.game-card__emoji{font-size:2.5rem;margin-bottom:.75rem}
-.game-card__title{color:var(--text,#fff);font-size:1.1rem;margin:0 0 .5rem}
-.game-card__desc{color:var(--text-secondary,#a0a0a0);font-size:.85rem;line-height:1.4;margin:0 0 1rem}
-.btn-sm{font-size:.8rem;padding:.4rem 1rem}
-.game-view{padding:1rem}
-.game-view__header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
-.game-view__header h2{color:var(--accent,#00ffa3);margin:0}
-.skeleton-loader{color:var(--text-secondary,#a0a0a0);padding:2rem;text-align:center;animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-
 </style>
 
 <style>
@@ -6284,45 +6272,7 @@ event MyMarket {
     </section>
 
 
-    
-<!-- === GAMES LOBBY === -->
-<section class="view" id="v-games">
-  <div style="padding:2rem 1rem;max-width:1200px;margin:0 auto">
-    <h2 style="color:var(--accent,#00ffa3);font-size:1.8rem;margin-bottom:0.5rem">🎮 Games</h2>
-    <p style="color:var(--text-secondary,#a0a0a0);margin-bottom:2rem">Skill games with KAS stakes. Every match settled on-chain via covenants.</p>
-    <div id="games-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.25rem"></div>
-  </div>
-</section>
-<section class="view" id="v-game-poker">
-  <div style="padding:2rem 1rem;max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-      <button class="btn btn-ghost" onclick="window.htpShowGames()">&larr; Back to Games</button>
-      <h2 style="color:var(--accent,#00ffa3);margin:0">🃏 Poker</h2>
-    </div>
-    <p style="color:var(--text-secondary,#a0a0a0);margin-bottom:1.5rem">Texas Holdem with covenant-secured pots on Kaspa.</p>
-    <div style="display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="window.htpOpenGame('poker')">Create Table</button>
-      <button class="btn btn-ghost" onclick="window.htpOpenGame('poker')">Join Table</button>
-    </div>
-    <div id="game-root-poker"><div class="skeleton-loader">Loading Poker...</div></div>
-  </div>
-</section>
-<section class="view" id="v-game-blackjack">
-  <div style="padding:2rem 1rem;max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-      <button class="btn btn-ghost" onclick="window.htpShowGames()">&larr; Back to Games</button>
-      <h2 style="color:var(--accent,#00ffa3);margin:0">🂡 Blackjack</h2>
-    </div>
-    <p style="color:var(--text-secondary,#a0a0a0);margin-bottom:1.5rem">Beat the dealer with provably fair commit-reveal.</p>
-    <div style="display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="window.htpOpenGame('blackjack')">New Game</button>
-    </div>
-    <div id="game-root-blackjack"><div class="skeleton-loader">Loading Blackjack...</div></div>
-  </div>
-</section>
-<!-- === END GAMES LOBBY === -->
-
-</main>
+    </main>
     <footer class="ftr">
         <div class="ftr-in"><span style="font-weight:600">HIGH TABLE PROTOCOL</span>
             <div class="ftr-links"><a href="javascript:void(0)" onclick="go('terms');return false">Terms</a><a href="javascript:void(0)"
@@ -23036,8 +22986,5 @@ window.addEventListener('htp:balance:updated', function(e) {
       loadHtpRustWasm();
     }
   </script>
-<script src="htp-config.js"></script>
-<script src="htp-game-router.js"></script>
-<script src="lobby-new-games.js"></script>
 </body>
 </html>
