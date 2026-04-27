@@ -3926,6 +3926,13 @@ body::before {
   display: none !important;
 }
 
+
+.sg-tag{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid rgba(73,232,194,0.2);color:var(--accent);background:rgba(73,232,194,0.05)}
+.sg-card{transition:all 0.25s ease;position:relative;overflow:hidden}
+.sg-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity 0.3s}
+.sg-card:hover::before{opacity:1}
+.sg-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(73,232,194,0.08);border-color:rgba(73,232,194,0.3)}
+
 </style>
 
 <style>
@@ -5058,7 +5065,7 @@ event MyMarket {
 
                 <!-- Create Match Form -->
                 <div class="sgv2-mform" style="margin:0 auto;max-width:1200px;padding-left:24px;padding-right:24px">
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:1">
+                    <div id="sgCreateForm" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:1">
                         <h3 style="font-size:22px">⚔ Create a Challenge</h3>
                         <div style="font-size:10px;color:var(--accent);background:rgba(73,232,194,.08);border:1px solid rgba(73,232,194,.25);border-radius:20px;padding:4px 12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;display:inline-flex;align-items:center;gap:5px">
                             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#49e8c2;box-shadow:0 0 6px #49e8c2"></span>
@@ -5074,7 +5081,9 @@ event MyMarket {
                         <option value="connect4" data-times="1|0,2|0,3|0,5|0,10|0" data-series="1,3,5,7">🔴 Connect 4</option>
                         <option value="checkers" data-times="3|0,5|0,5|3,10|0,10|5,15|0" data-series="1,3,5,7">⚪ Checkers</option>
                         <option value="tictactoe" data-times="0|5,0|10,0|15,0|30,1|0,2|0,3|0,5|0" data-series="1,3,5,7,9">✕ Tic-Tac-Toe</option>
-                    </select>
+                    <option value="poker" data-times="5|0,10|0,15|0,20|0,30|0,60|0" data-series="1,3,5">Poker</option>
+<option value="blackjack" data-times="5|0,10|0,15|0" data-series="1,3,5,7">Blackjack</option>
+</select>
 
                     <div style="position:relative;z-index:1;margin-bottom:6px">
                         <div style="font-size:11px;font-weight:700;color:rgba(73,232,194,.65);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Select Game</div>
@@ -5098,6 +5107,9 @@ event MyMarket {
                             <span class="sg-lbl" style="font-size:11px">Tic-Tac-Toe</span>
                         </button>
                     </div>
+<div class="sg-gbtn" data-game="poker">&#127183; Poker</div>
+<div class="sg-gbtn" data-game="blackjack">&#127137; Blackjack</div>
+
                     <script>(function(){var btns=document.querySelectorAll('#sgGamePicker .sg-gbtn'),sel=document.getElementById('sgGame');function act(g){btns.forEach(function(b){var on=b.getAttribute('data-game')===g;b.classList.toggle('act',on);});}btns.forEach(function(b){b.addEventListener('click',function(){sel.value=b.getAttribute('data-game');sel.dispatchEvent(new Event('change'));act(sel.value);});});})();</script>
 
                     <!-- Settings Row -->
@@ -22313,6 +22325,47 @@ window.addEventListener('htp:balance:updated', function(e) {
     window.htpWalletV3.updateUI();
   }
 });
+</script>
+
+
+<script>
+(function(){
+  // Wire poker/blackjack picker buttons (they were added dynamically)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.sg-gbtn');
+    if (!btn) return;
+    var game = btn.dataset.game;
+    if (!game) return;
+    // Select this button
+    document.querySelectorAll('#sgGamePicker .sg-gbtn').forEach(function(b){b.classList.remove('sg-gbtn-active')});
+    btn.classList.add('sg-gbtn-active');
+    var sel = document.getElementById('sgGame');
+    if (sel) { sel.value = game; if (window.updGameOpts) updGameOpts(); }
+  });
+
+  // Enhance create match button to handle poker/blackjack
+  var origCreateMatch = window.createSkillMatch;
+  window.createSkillMatch = function() {
+    var sel = document.getElementById('sgGame');
+    if (!sel) return origCreateMatch ? origCreateMatch() : null;
+    var game = sel.value;
+    if (game === 'poker') {
+      if (window.startPokerGame) {
+        var escrow = document.getElementById('sgEsc');
+        window.startPokerGame({id: 'poker-' + Date.now(), escrow: escrow ? escrow.value : 5});
+      }
+      return;
+    }
+    if (game === 'blackjack') {
+      if (window.startBlackjackGame) {
+        var escrow = document.getElementById('sgEsc');
+        window.startBlackjackGame({id: 'bj-' + Date.now(), escrow: escrow ? escrow.value : 5});
+      }
+      return;
+    }
+    if (origCreateMatch) return origCreateMatch();
+  };
+})();
 </script>
 
 </body>
