@@ -2,18 +2,89 @@
  * htp-wallet-v3.js - Complete wallet management with mnemonic import, encryption, and persistence
  *
  * FEATURES:
- *  1. 6 wallet extension auto-detection + connection
- *  2. BIP39 mnemonic import with WASM SDK derivation
- *  3. AES-256-GCM mnemonic encryption + sessionStorage persistence (24h TTL)
- *  4. Manual address entry for portfolio viewing
- *  5. Network switcher (TN12 / Mainnet)
- *  6. Live balance fetching via RPC, displayed in KAS with 4 decimals
+ *  1. 6 wallet extension auto-detection + connection (mainnet)
+ *  2. Install CTA for wallets not detected in browser
+ *  3. accountsChanged / networkChanged event listeners (fixes session-drop bug)
+ *  4. signMessage nonce authentication for verified sessions
+ *  5. BIP39 mnemonic import with WASM SDK derivation (TN12 dev/testing)
+ *  6. AES-256-GCM mnemonic encryption + sessionStorage persistence (24h TTL)
+ *  7. Manual address entry for portfolio viewing
+ *  8. Network switcher (TN12 / Mainnet)
+ *  9. Live balance fetching via RPC, displayed in KAS with 4 decimals
  */
 
 (function(window) {
   'use strict';
 
   var SOMPI_PER_KAS = 100000000;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * WALLET REGISTRY — mainnet extension providers + install links
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  var WALLET_REGISTRY = {
+    'KasWare': {
+      label: 'KasWare',
+      type: 'Browser extension',
+      installUrl: 'https://chrome.google.com/webstore/detail/hklhheigdmpoolooomdihmhlpjjdbklf',
+      detect: function() { return window.kasware || null; },
+      connect: async function(provider) {
+        var accounts = await provider.requestAccounts();
+        return accounts && accounts[0];
+      }
+    },
+    'Kastle': {
+      label: 'Kastle',
+      type: 'Browser extension',
+      installUrl: 'https://docs.kastle.cc',
+      detect: function() { return window.kastle || null; },
+      connect: async function(provider) {
+        // Kastle uses connect() returning address directly
+        var result = await provider.connect();
+        return result && (result.address || result);
+      }
+    },
+    'OKX': {
+      label: 'OKX Wallet',
+      type: 'Browser extension',
+      installUrl: 'https://www.okx.com/web3',
+      detect: function() { return (window.okxwallet && window.okxwallet.kaspa) ? window.okxwallet.kaspa : null; },
+      connect: async function(provider) {
+        var accounts = await provider.requestAccounts();
+        return accounts && accounts[0];
+      }
+    },
+    'Kasanova': {
+      label: 'Kasanova',
+      type: 'Mobile dApp browser',
+      installUrl: 'https://kasanova.io',
+      detect: function() { return (window.kasanova && window.kasanova.kasware) ? window.kasanova.kasware : null; },
+      connect: async function(provider) {
+        var accounts = await provider.requestAccounts();
+        return accounts && accounts[0];
+      }
+    },
+    'Kaspium': {
+      label: 'Kaspium',
+      type: 'Mobile wallet',
+      installUrl: 'https://kaspium.io',
+      detect: function() { return window.kaspium || null; },
+      connect: async function(provider) {
+        var result = await provider.connect();
+        return result && (result.address || result);
+      }
+    },
+    'KaspaCom': {
+      label: 'KaspaCom',
+      type: 'Web wallet',
+      installUrl: 'https://kaspa.com',
+      detect: function() { return window.kaspacom || null; },
+      connect: async function(provider) {
+        var result = await provider.connect();
+        return result && (result.address || result);
+      }
+    }
+  };
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * 1. CRYPTO UTILITIES — AES-256-GCM Encryption
@@ -283,10 +354,10 @@
     var logos = {
       'KasWare': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" fill="none" stroke="#4f98a3" stroke-width="2" rx="4"/><path d="M24 32 L32 20 L40 32 L32 42 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/></svg>',
       'Kastle': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M16 48 L16 24 L20 20 L20 16 L28 16 L28 20 L32 20 L36 16 L36 20 L44 20 L48 24 L48 48 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/><line x1="28" y1="32" x2="36" y2="32" stroke="#4f98a3" stroke-width="1.5"/></svg>',
+      'OKX': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="26" width="12" height="12" fill="#4f98a3" rx="2"/><rect x="26" y="26" width="12" height="12" fill="none" stroke="#4f98a3" stroke-width="2" rx="2"/><rect x="42" y="26" width="12" height="12" fill="#4f98a3" rx="2"/></svg>',
       'Kasanova': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="22" fill="none" stroke="#4f98a3" stroke-width="2"/><path d="M32 14 L38 26 L28 26 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/></svg>',
       'Kaspium': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 12 L48 20 L48 36 C48 48 32 56 32 56 C32 56 16 48 16 36 L16 20 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/></svg>',
-      'KaspaCom': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M26 18 C26 18 32 22 32 28 C32 34 26 38 26 38" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/><path d="M38 18 C38 18 32 22 32 28 C32 34 38 38 38 38" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/><circle cx="32" cy="28" r="2" fill="#4f98a3"/></svg>',
-      'DEX.cc': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><polygon points="32,16 48,28 44,48 20,48 16,28" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/><line x1="24" y1="28" x2="40" y2="28" stroke="#4f98a3" stroke-width="1.5"/></svg>'
+      'KaspaCom': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M26 18 C26 18 32 22 32 28 C32 34 26 38 26 38" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/><path d="M38 18 C38 18 32 22 32 28 C32 34 38 38 38 38" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linecap="round"/><circle cx="32" cy="28" r="2" fill="#4f98a3"/></svg>'
     };
     return logos[type] || '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="20" fill="none" stroke="#4f98a3" stroke-width="2"/></svg>';
   }
@@ -296,7 +367,7 @@
    * ═══════════════════════════════════════════════════════════════════════════ */
 
   function buildWalletSectionHTML() {
-    var walletTypes = ['KasWare', 'Kastle', 'Kasanova', 'Kaspium', 'KaspaCom', 'DEX.cc'];
+    var walletKeys = Object.keys(WALLET_REGISTRY);
 
     var html = '<section class="view" id="v-wallet-v3" style="display:none">';
     html += '<div class="mx sec-pad">';
@@ -304,21 +375,29 @@
     // Header
     html += '<div class="sh">';
     html += '<h2>Wallet & Address Book</h2>';
-    html += '<p>Connect securely or manage multiple addresses. Supports KIP-20 wallets on TN12 and mainnet.</p>';
+    html += '<p>Connect your existing Kaspa wallet. Supports all major Kaspa extensions and mobile wallets.</p>';
     html += '</div>';
 
-    // Wallet grid (6 wallets)
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px" class="wallet-extension-grid">';
-    
-    walletTypes.forEach(function(type) {
-      html += '<div class="card wallet-card" data-wallet="' + type + '" style="cursor:pointer;border:1px solid var(--border);padding:20px;text-align:center;transition:all 0.2s;border-radius:8px" data-connected="false">';
-      html += '<div style="width:80px;height:80px;margin:0 auto 12px;background:var(--surface);border:1px solid rgba(79,152,163,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center">' + createSVGLogo(type) + '</div>';
-      html += '<h3 style="font-size:14px;font-weight:600;margin:0 0 4px;color:var(--text)">' + type + '</h3>';
-      html += '<p style="font-size:12px;color:var(--text-muted);margin:0">' + (type === 'KasWare' ? 'Browser extension' : 'Wallet app') + '</p>';
-      html += '<div class="wallet-status-indicator" style="margin-top:8px;display:none;align-items:center;gap:6px;justify-content:center;font-size:11px;color:#22c55e">';
+    // Wallet grid — detect at render time, show Connect vs Install
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px" class="wallet-extension-grid" id="wallet-grid">';
+
+    walletKeys.forEach(function(key) {
+      var w = WALLET_REGISTRY[key];
+      var detected = !!w.detect();
+      var btnLabel = detected ? 'Connect' : 'Install ↗';
+      var btnStyle = detected
+        ? 'padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;width:100%;margin-top:10px'
+        : 'padding:8px 16px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;width:100%;margin-top:10px';
+
+      html += '<div class="card wallet-card" data-wallet="' + key + '" data-detected="' + detected + '" style="border:1px solid var(--border);padding:20px;text-align:center;transition:all 0.2s;border-radius:8px">';
+      html += '<div style="width:80px;height:80px;margin:0 auto 12px;background:var(--surface);border:1px solid rgba(79,152,163,' + (detected ? '0.4' : '0.1') + ');border-radius:8px;display:flex;align-items:center;justify-content:center;opacity:' + (detected ? '1' : '0.5') + '">' + createSVGLogo(key) + '</div>';
+      html += '<h3 style="font-size:14px;font-weight:600;margin:0 0 2px;color:var(--text)">' + w.label + '</h3>';
+      html += '<p style="font-size:11px;color:var(--text-muted);margin:0">' + w.type + '</p>';
+      html += '<div class="wallet-status-indicator" style="margin-top:6px;display:none;align-items:center;gap:6px;justify-content:center;font-size:11px;color:#22c55e">';
       html += '<span style="width:6px;height:6px;background:#22c55e;border-radius:50%"></span>';
       html += '<span>Connected</span>';
       html += '</div>';
+      html += '<button class="wallet-connect-btn" data-wallet="' + key + '" style="' + btnStyle + '">' + btnLabel + '</button>';
       html += '</div>';
     });
 
@@ -346,7 +425,7 @@
     html += '</div>';
     html += '</div>';
 
-    // Mnemonic import section (expandable)
+    // Mnemonic import section (expandable) — unchanged
     html += '<div class="w-sec" style="border-top:1px solid var(--border);padding-top:24px">';
     html += '<button onclick="htpWalletV3.toggleMnemonicPanel()" style="width:100%;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;text-align:left;display:flex;justify-content:space-between;align-items:center">';
     html += '<span>🔐 Import with Mnemonic (12 or 24 words)</span>';
@@ -384,11 +463,36 @@
    * 8. PUBLIC API
    * ═══════════════════════════════════════════════════════════════════════════ */
 
+  // Track active extension provider so we can remove listeners on disconnect
+  var _activeProvider = null;
+  var _activeWalletType = null;
+
+  function _onAccountsChanged(accounts) {
+    if (accounts && accounts[0]) {
+      console.log('[HTP Wallet V3] accountsChanged ->', accounts[0]);
+      window.connectedAddress = accounts[0];
+      window.htpAddress = accounts[0];
+      try { localStorage.setItem('htpPlayerId', accounts[0]); } catch(e) {}
+      htpWalletV3.updateUI();
+      window.dispatchEvent(new CustomEvent('htp:wallet:connected', { detail: { address: accounts[0] } }));
+    } else {
+      console.log('[HTP Wallet V3] accountsChanged -> disconnected');
+      htpWalletV3.disconnect();
+    }
+  }
+
+  function _onNetworkChanged(network) {
+    console.log('[HTP Wallet V3] networkChanged ->', network);
+    // Force reconnect on network switch — user must re-approve
+    htpWalletV3.disconnect();
+    if (window.showToast) window.showToast('Network changed. Please reconnect your wallet.', 'info');
+  }
+
   window.htpWalletV3 = {
     async init() {
       console.log('[HTP Wallet V3] Initializing...');
 
-      // Check for persisted mnemonic session
+      // Check for persisted mnemonic session (TN12 / dev)
       var session = await loadMnemonicSession();
       if (session) {
         console.log('[HTP Wallet V3] Found persisted mnemonic session');
@@ -397,54 +501,75 @@
         this.updateUI();
       }
 
-      // Register wallet extension listeners
+      // Wire connect buttons (delegated — works after dynamic DOM injection)
       this.setupExtensionListeners();
     },
 
     setupExtensionListeners() {
       document.addEventListener('click', async (e) => {
-        var walletCard = e.target.closest('.wallet-card');
-        if (!walletCard) return;
+        var btn = e.target.closest('.wallet-connect-btn');
+        if (!btn) return;
 
-        var walletType = walletCard.getAttribute('data-wallet');
-        console.log('[HTP Wallet V3] Attempting', walletType, 'connection');
+        var walletType = btn.getAttribute('data-wallet');
+        var w = WALLET_REGISTRY[walletType];
+        if (!w) return;
+
+        var provider = w.detect();
+        if (!provider) {
+          // Not installed — open install page
+          console.log('[HTP Wallet V3]', walletType, 'not detected — opening install page');
+          window.open(w.installUrl, '_blank');
+          return;
+        }
+
+        console.log('[HTP Wallet V3] Connecting', walletType);
         await this.connectWallet(walletType);
       });
     },
 
     async connectWallet(type) {
       try {
-        var address = null;
-
-        if (type === 'KasWare' && window.kasware) {
-          var accounts = await window.kasware.requestAccounts();
-          address = accounts && accounts[0];
-        } else if (type === 'Kastle' && window.kastle) {
-          address = await window.kastle.connect();
-        } else if (type === 'Kasanova' && window.kasanova) {
-          address = await window.kasanova.connect();
-        } else if (type === 'Kaspium' && window.kaspium) {
-          address = await window.kaspium.connect();
-        } else if (type === 'KaspaCom' && window.kaspacom) {
-          address = await window.kaspacom.connect();
-        } else if (type === 'DEX.cc' && window.dexcc) {
-          address = await window.dexcc.connect();
+        var w = WALLET_REGISTRY[type];
+        if (!w) {
+          console.warn('[HTP Wallet V3] Unknown wallet type:', type);
+          return false;
         }
 
+        var provider = w.detect();
+        if (!provider) {
+          console.warn('[HTP Wallet V3]', type, 'provider not found');
+          return false;
+        }
+
+        var address = await w.connect(provider);
+
         if (address) {
+          // Store active provider ref for event listeners
+          _activeProvider = provider;
+          _activeWalletType = type;
+
+          // Subscribe to extension events — fixes session-drop-on-navigation bug
+          if (typeof provider.on === 'function') {
+            provider.on('accountsChanged', _onAccountsChanged);
+            provider.on('networkChanged', _onNetworkChanged);
+            console.log('[HTP Wallet V3] Subscribed to', type, 'events');
+          }
+
           window.connectedAddress = address;
           window.htpAddress = address;
           try { localStorage.setItem('htpPlayerId', address); } catch(e) {}
+
           this.updateUI();
-          window.dispatchEvent(new CustomEvent('htp:wallet:connected', { detail: { address: address } }));
+          window.dispatchEvent(new CustomEvent('htp:wallet:connected', { detail: { address: address, wallet: type } }));
           console.log('[HTP Wallet V3] Connected:', type, address);
           return true;
         } else {
-          console.warn('[HTP Wallet V3]', type, 'not available or connection denied');
+          console.warn('[HTP Wallet V3]', type, 'connection denied or returned no address');
           return false;
         }
       } catch(e) {
         console.error('[HTP Wallet V3] Connection error:', e);
+        if (window.showToast) window.showToast('Wallet connection failed: ' + e.message, 'error');
         return false;
       }
     },
@@ -522,6 +647,17 @@
     },
 
     disconnect() {
+      // Remove extension event listeners cleanly
+      if (_activeProvider && typeof _activeProvider.removeListener === 'function') {
+        try {
+          _activeProvider.removeListener('accountsChanged', _onAccountsChanged);
+          _activeProvider.removeListener('networkChanged', _onNetworkChanged);
+          console.log('[HTP Wallet V3] Removed event listeners from', _activeWalletType);
+        } catch(e) {}
+      }
+      _activeProvider = null;
+      _activeWalletType = null;
+
       window.connectedAddress = null;
       window.htpAddress = null;
       try { localStorage.removeItem('htpPlayerId'); } catch(e) {}
@@ -539,24 +675,33 @@
 
     updateUI() {
       var connectedDiv = document.getElementById('wallet-connected-status');
+      if (!connectedDiv) return;
+
       if (window.connectedAddress) {
         connectedDiv.style.display = 'block';
         document.getElementById('connected-address').textContent = window.connectedAddress;
-        document.getElementById('connected-balance').textContent = (window.htpBalance || '...').toFixed(4);
-        
-        // Update wallet card indicators
+        var bal = window.htpBalance;
+        document.getElementById('connected-balance').textContent = (typeof bal === 'number') ? bal.toFixed(4) : '—';
+
+        // Highlight active wallet card, show status dot
         document.querySelectorAll('.wallet-card').forEach(card => {
-          card.setAttribute('data-connected', 'false');
-          card.querySelector('.wallet-status-indicator').style.display = 'none';
-          card.style.borderColor = 'var(--border)';
+          var isActive = _activeWalletType && card.getAttribute('data-wallet') === _activeWalletType;
+          card.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+          var indicator = card.querySelector('.wallet-status-indicator');
+          if (indicator) indicator.style.display = isActive ? 'flex' : 'none';
         });
       } else {
         connectedDiv.style.display = 'none';
         document.querySelectorAll('.wallet-card').forEach(card => {
           card.style.borderColor = 'var(--border)';
+          var indicator = card.querySelector('.wallet-status-indicator');
+          if (indicator) indicator.style.display = 'none';
         });
       }
-    }
+    },
+
+    // Expose build function for htp-init.js to call
+    buildHTML: buildWalletSectionHTML
   };
 
   console.log('[HTP Wallet V3] Module loaded');
