@@ -11,12 +11,20 @@
  *  7. Manual address entry for portfolio viewing
  *  8. Network switcher (TN12 / Mainnet)
  *  9. Live balance fetching via RPC, displayed in KAS with 4 decimals
+ *
+ * FIX #4: BIP44 derivation path corrected from "m/44'/111111'/0'/0/0'" to "m/44'/111111'/0'/0/0"
+ *   The address_index (final segment) must be NON-hardened per BIP44 spec. A hardened
+ *   address index produces a completely different keypair from all standard Kaspa wallets
+ *   and the Rust/WASM backend — wallets would appear to have zero balance.
  */
 
 (function(window) {
   'use strict';
 
   var SOMPI_PER_KAS = 100000000;
+
+  // Canonical Kaspa BIP44 derivation path — address index is NOT hardened
+  var KASPA_DERIVATION_PATH = "m/44'/111111'/0'/0/0";
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * WALLET REGISTRY — mainnet extension providers + install links
@@ -39,7 +47,6 @@
       installUrl: 'https://docs.kastle.cc',
       detect: function() { return window.kastle || null; },
       connect: async function(provider) {
-        // Kastle uses connect() returning address directly
         var result = await provider.connect();
         return result && (result.address || result);
       }
@@ -88,11 +95,9 @@
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * 1. CRYPTO UTILITIES — AES-256-GCM Encryption
-   * ═══════════════════════════════════════════════════════════════════════
- */
+   * ═══════════════════════════════════════════════════════════════════════ */
 
   async function deriveKeyFromString(secret) {
-    // Use subtle crypto to derive a key from a string (for session persistence)
     var enc = new TextEncoder();
     var data = enc.encode(secret);
     var hash = await crypto.subtle.digest('SHA-256', data);
@@ -102,17 +107,10 @@
   async function encryptMnemonic(mnemonic, sessionKey) {
     try {
       var key = await deriveKeyFromString(sessionKey);
-      var iv = crypto.getRandomValues(new Uint8Array(12)); // GCM IV
+      var iv = crypto.getRandomValues(new Uint8Array(12));
       var enc = new TextEncoder();
       var plaintext = enc.encode(mnemonic);
-
-      var ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: iv },
-        key,
-        plaintext
-      );
-
-      // Return base64-encoded JSON with IV + ciphertext
+      var ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
       var data = {
         iv: Array.from(iv).map(b => String.fromCharCode(b)).join(''),
         ciphertext: Array.from(new Uint8Array(ciphertext)).map(b => String.fromCharCode(b)).join('')
@@ -129,16 +127,9 @@
       var data = JSON.parse(atob(encrypted));
       var iv = new Uint8Array(data.iv.split('').map(c => c.charCodeAt(0)));
       var ciphertext = new Uint8Array(data.ciphertext.split('').map(c => c.charCodeAt(0)));
-
       var key = await deriveKeyFromString(sessionKey);
-      var plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv },
-        key,
-        ciphertext
-      );
-
-      var dec = new TextDecoder();
-      return dec.decode(plaintext);
+      var plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ciphertext);
+      return new TextDecoder().decode(plaintext);
     } catch(e) {
       console.error('[HTP Wallet] Decryption error:', e);
       return null;
@@ -147,11 +138,15 @@
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * 2. MNEMONIC DERIVATION — Using WASM SDK
+   *
+   * FIX #4: Path changed from "m/44'/111111'/0'/0/0'" → "m/44'/111111'/0'/0/0"
+   *   BIP44 spec: purpose(h) / coin_type(h) / account(h) / change / address_index
+   *   address_index must be non-hardened. The old path with 0' on the last segment
+   *   derives a different private key — no standard Kaspa wallet recognises it.
    * ═══════════════════════════════════════════════════════════════════════════ */
 
   async function deriveCaspaAddressFromMnemonic(mnemonicPhrase) {
     return new Promise(function(resolve) {
-      // Wait for WASM + Kaspa SDK to be ready
       if (window.whenWasmReady) {
         window.whenWasmReady(function() {
           try {
@@ -160,15 +155,15 @@
               return resolve(null);
             }
 
-            // Use Kaspa WASM SDK to derive keypair from mnemonic
             var mnemonic = window.kaspaSDK.Mnemonic.new(mnemonicPhrase);
             var xPriv = mnemonic.toXPrv('');
-            var derivationPath = window.kaspaSDK.DerivationPath.new("m/44'/111111'/0'/0/0'");
+            // FIX: non-hardened address index — matches all standard Kaspa wallets
+            var derivationPath = window.kaspaSDK.DerivationPath.new(KASPA_DERIVATION_PATH);
             var privateKey = xPriv.derivePrivateKey(derivationPath);
             var publicKey = privateKey.publicKey();
             var addr = window.kaspaSDK.Address.fromPublicKey(publicKey, window.HTP_PREFIX);
 
-            console.log('[HTP Wallet] Mnemonic derived address:', addr.toString());
+            console.log('[HTP Wallet] Derived address (' + KASPA_DERIVATION_PATH + '):', addr.toString());
             resolve(addr.toString());
           } catch(e) {
             console.error('[HTP Wallet] Derivation error:', e);
@@ -191,12 +186,8 @@
       if (!window.htpRpc || !window.htpRpc.balance) {
         console.warn('[HTP Wallet] RPC not ready, attempting direct fetch');
         if (!window.HTP_RPC_URL) return null;
-
-        // Fallback: direct REST API call
         var apiUrl = window.HTP_RPC_URL.replace('wss://', 'https://').replace('ws://', 'http://');
-        apiUrl = apiUrl.replace(/\/$/, ''); // Remove trailing slash
-
-        // Try Kaspa REST API
+        apiUrl = apiUrl.replace(/\/$/, '');
         var resp = await fetch(apiUrl.replace('/rpc', '/api') + `/addresses/${address}`);
         if (resp.ok) {
           var data = await resp.json();
@@ -204,8 +195,6 @@
         }
         return null;
       }
-
-      // Use configured RPC client
       return await window.htpRpc.balance(address);
     } catch(e) {
       console.warn('[HTP Wallet] Balance fetch error:', e);
@@ -217,12 +206,10 @@
    * 4. SESSION STORAGE PERSISTENCE
    * ═══════════════════════════════════════════════════════════════════════════ */
 
-  var SESSION_KEY_NAME = 'htp_mnemonic_key';
   var SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
   var WALLET_SESSION_STORAGE = 'htp_wallet_session';
 
   function generateSessionKey() {
-    // Generate a random 32-byte key, store in memory (not persisted)
     var key = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -232,9 +219,7 @@
 
   function getSessionKey() {
     if (window._htpSessionMnemonicKey) return window._htpSessionMnemonicKey;
-    var key = generateSessionKey();
-    console.log('[HTP Wallet] Generated session key for mnemonic encryption');
-    return key;
+    return generateSessionKey();
   }
 
   async function saveMnemonicSession(mnemonic, address) {
@@ -242,14 +227,7 @@
       var sessionKey = getSessionKey();
       var encrypted = await encryptMnemonic(mnemonic, sessionKey);
       if (!encrypted) return false;
-
-      var session = {
-        encrypted: encrypted,
-        address: address,
-        timestamp: Date.now(),
-        ttl: SESSION_TTL_MS
-      };
-
+      var session = { encrypted: encrypted, address: address, timestamp: Date.now(), ttl: SESSION_TTL_MS };
       try {
         sessionStorage.setItem(WALLET_SESSION_STORAGE, JSON.stringify(session));
         console.log('[HTP Wallet] Mnemonic session saved, TTL 24h');
@@ -268,19 +246,14 @@
     try {
       var stored = sessionStorage.getItem(WALLET_SESSION_STORAGE);
       if (!stored) return null;
-
       var session = JSON.parse(stored);
       var age = Date.now() - session.timestamp;
-
       if (age > session.ttl) {
         sessionStorage.removeItem(WALLET_SESSION_STORAGE);
         console.log('[HTP Wallet] Mnemonic session expired');
         return null;
       }
-
-      var sessionKey = getSessionKey();
-      var mnemonic = await decryptMnemonic(session.encrypted, sessionKey);
-
+      var mnemonic = await decryptMnemonic(session.encrypted, getSessionKey());
       if (mnemonic) {
         console.log('[HTP Wallet] Mnemonic session restored (age:', Math.round(age / 1000), 's)');
         return { mnemonic: mnemonic, address: session.address };
@@ -307,37 +280,27 @@
     var trimmed = mnemonicPhrase.trim().toLowerCase();
     var words = trimmed.split(/\s+/).filter(w => w.length > 0);
 
-    // Validate word count
     if (words.length !== 12 && words.length !== 24) {
       return { ok: false, error: 'Mnemonic must be 12 or 24 words' };
     }
 
-    // Derive address from mnemonic using WASM
     var address = await deriveCaspaAddressFromMnemonic(mnemonicPhrase);
     if (!address) {
       return { ok: false, error: 'Failed to derive address from mnemonic. Invalid phrase or WASM not ready.' };
     }
 
-    // Fetch balance
     var balanceSompi = await fetchBalance(address);
     if (balanceSompi === null) {
       return { ok: false, error: 'Could not fetch balance. Network issue or RPC unavailable.' };
     }
 
-    // Save to session storage with encryption
     var saved = await saveMnemonicSession(mnemonicPhrase, address);
     if (!saved) {
       console.warn('[HTP Wallet] Session storage save failed, but continuing with memory-only');
     }
 
-    // Return success with derived info
     var kas = (balanceSompi / SOMPI_PER_KAS).toFixed(4);
-    return {
-      ok: true,
-      address: address,
-      balance: kas,
-      balanceSompi: balanceSompi
-    };
+    return { ok: true, address: address, balance: kas, balanceSompi: balanceSompi };
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -350,7 +313,6 @@
   }
 
   function createSVGLogo(type) {
-    // Return inline SVG logos for each wallet
     var logos = {
       'KasWare': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="48" height="48" fill="none" stroke="#4f98a3" stroke-width="2" rx="4"/><path d="M24 32 L32 20 L40 32 L32 42 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/></svg>',
       'Kastle': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M16 48 L16 24 L20 20 L20 16 L28 16 L28 20 L32 20 L36 16 L36 20 L44 20 L48 24 L48 48 Z" fill="none" stroke="#4f98a3" stroke-width="2" stroke-linejoin="miter"/><line x1="28" y1="32" x2="36" y2="32" stroke="#4f98a3" stroke-width="1.5"/></svg>',
@@ -372,13 +334,11 @@
     var html = '<section class="view" id="v-wallet-v3" style="display:none">';
     html += '<div class="mx sec-pad">';
 
-    // Header
     html += '<div class="sh">';
     html += '<h2>Wallet & Address Book</h2>';
     html += '<p>Connect your existing Kaspa wallet. Supports all major Kaspa extensions and mobile wallets.</p>';
     html += '</div>';
 
-    // Wallet grid — detect at render time, show Connect vs Install
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:32px" class="wallet-extension-grid" id="wallet-grid">';
 
     walletKeys.forEach(function(key) {
@@ -425,7 +385,7 @@
     html += '</div>';
     html += '</div>';
 
-    // Mnemonic import section (expandable) — unchanged
+    // Mnemonic import section (expandable)
     html += '<div class="w-sec" style="border-top:1px solid var(--border);padding-top:24px">';
     html += '<button onclick="htpWalletV3.toggleMnemonicPanel()" style="width:100%;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;text-align:left;display:flex;justify-content:space-between;align-items:center">';
     html += '<span>🔐 Import with Mnemonic (12 or 24 words)</span>';
@@ -433,7 +393,7 @@
     html += '</button>';
 
     html += '<div id="mnemonic-import-panel" style="display:none;margin-top:12px;padding:16px;background:rgba(79,152,163,0.05);border:1px solid rgba(79,152,163,0.15);border-radius:8px">';
-    html += '<p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Enter your BIP39 seed phrase. The private key is encrypted and stored only in this session.</p>';
+    html += '<p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">BIP44 path: <code>' + KASPA_DERIVATION_PATH + '</code>. Key encrypted, stored in session only.</p>';
     html += '<textarea id="mnemonic-input" placeholder="word1 word2 word3 ... word12 (or 24)" style="width:100%;height:80px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:\'JetBrains Mono\',monospace;font-size:12px;box-sizing:border-box;resize:vertical;margin-bottom:12px"></textarea>';
 
     html += '<div style="display:flex;gap:8px">';
@@ -463,7 +423,6 @@
    * 8. PUBLIC API
    * ═══════════════════════════════════════════════════════════════════════════ */
 
-  // Track active extension provider so we can remove listeners on disconnect
   var _activeProvider = null;
   var _activeWalletType = null;
 
@@ -483,16 +442,14 @@
 
   function _onNetworkChanged(network) {
     console.log('[HTP Wallet V3] networkChanged ->', network);
-    // Force reconnect on network switch — user must re-approve
     htpWalletV3.disconnect();
     if (window.showToast) window.showToast('Network changed. Please reconnect your wallet.', 'info');
   }
 
   window.htpWalletV3 = {
     async init() {
-      console.log('[HTP Wallet V3] Initializing...');
+      console.log('[HTP Wallet V3] Initializing... BIP44 path:', KASPA_DERIVATION_PATH);
 
-      // Check for persisted mnemonic session (TN12 / dev)
       var session = await loadMnemonicSession();
       if (session) {
         console.log('[HTP Wallet V3] Found persisted mnemonic session');
@@ -501,7 +458,6 @@
         this.updateUI();
       }
 
-      // Wire connect buttons (delegated — works after dynamic DOM injection)
       this.setupExtensionListeners();
     },
 
@@ -516,7 +472,6 @@
 
         var provider = w.detect();
         if (!provider) {
-          // Not installed — open install page
           console.log('[HTP Wallet V3]', walletType, 'not detected — opening install page');
           window.open(w.installUrl, '_blank');
           return;
@@ -530,25 +485,17 @@
     async connectWallet(type) {
       try {
         var w = WALLET_REGISTRY[type];
-        if (!w) {
-          console.warn('[HTP Wallet V3] Unknown wallet type:', type);
-          return false;
-        }
+        if (!w) { console.warn('[HTP Wallet V3] Unknown wallet type:', type); return false; }
 
         var provider = w.detect();
-        if (!provider) {
-          console.warn('[HTP Wallet V3]', type, 'provider not found');
-          return false;
-        }
+        if (!provider) { console.warn('[HTP Wallet V3]', type, 'provider not found'); return false; }
 
         var address = await w.connect(provider);
 
         if (address) {
-          // Store active provider ref for event listeners
           _activeProvider = provider;
           _activeWalletType = type;
 
-          // Subscribe to extension events — fixes session-drop-on-navigation bug
           if (typeof provider.on === 'function') {
             provider.on('accountsChanged', _onAccountsChanged);
             provider.on('networkChanged', _onNetworkChanged);
@@ -577,6 +524,7 @@
     toggleMnemonicPanel() {
       var panel = document.getElementById('mnemonic-import-panel');
       var arrow = document.getElementById('mnemonic-toggle-arrow');
+      if (!panel) return;
       if (panel.style.display === 'none') {
         panel.style.display = 'block';
         arrow.textContent = '▲';
@@ -599,7 +547,7 @@
         return;
       }
 
-      status.textContent = 'Deriving address...';
+      status.textContent = 'Deriving address…';
       status.style.display = 'block';
       status.style.background = 'rgba(79,152,163,0.1)';
       status.style.color = 'var(--text)';
@@ -615,7 +563,7 @@
         status.style.background = 'rgba(34,197,94,0.1)';
         status.style.color = '#22c55e';
         status.style.borderLeft = '3px solid #22c55e';
-        status.textContent = 'Wallet imported! Address: ' + formatAddress(result.address) + ' | Balance: ' + result.balance + ' KAS';
+        status.textContent = 'Imported! ' + formatAddress(result.address) + ' | ' + result.balance + ' KAS';
 
         document.getElementById('mnemonic-input').value = '';
         setTimeout(() => this.toggleMnemonicPanel(), 1000);
@@ -637,7 +585,7 @@
     setManualAddress() {
       var addr = document.getElementById('manual-address-input').value.trim();
       if (!addr) {
-        window.showToast('Enter an address', 'error');
+        if (window.showToast) window.showToast('Enter an address', 'error');
         return;
       }
       window.connectedAddress = addr;
@@ -647,7 +595,6 @@
     },
 
     disconnect() {
-      // Remove extension event listeners cleanly
       if (_activeProvider && typeof _activeProvider.removeListener === 'function') {
         try {
           _activeProvider.removeListener('accountsChanged', _onAccountsChanged);
@@ -667,7 +614,7 @@
     },
 
     setNetwork(net) {
-      if (net === 'mainnet') return; // Disable until Q2 2026
+      if (net === 'mainnet') return;
       try { localStorage.setItem('htp_network', net); } catch(e) {}
       window.HTP_NETWORK = net;
       window.location.reload();
@@ -683,7 +630,6 @@
         var bal = window.htpBalance;
         document.getElementById('connected-balance').textContent = (typeof bal === 'number') ? bal.toFixed(4) : '—';
 
-        // Highlight active wallet card, show status dot
         document.querySelectorAll('.wallet-card').forEach(card => {
           var isActive = _activeWalletType && card.getAttribute('data-wallet') === _activeWalletType;
           card.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
@@ -700,10 +646,9 @@
       }
     },
 
-    // Expose build function for htp-init.js to call
     buildHTML: buildWalletSectionHTML
   };
 
-  console.log('[HTP Wallet V3] Module loaded');
+  console.log('[HTP Wallet V3] Loaded — BIP44 path:', KASPA_DERIVATION_PATH);
 
 })(window);
