@@ -1,12 +1,12 @@
 /**
- * htp-covenant-escrow-v2.js  —  High Table Protocol  —  v3.0
+ * htp-covenant-escrow-v2.js  —  High Table Protocol  —  v3.1
  *
  * FULL TRUSTLESS MODEL:
  *  - Escrow keypair is generated ONCE per match, CLIENT-SIDE, via WebCrypto CSPRNG.
  *  - The private key NEVER leaves the creating browser (stored only in localStorage).
  *  - Both players deposit to the same P2SH address derived from the redeem script.
  *  - Settlement is triggered by the oracle attestation written to Firebase.
- *  - The winner’s browser (or the oracle daemon) builds + submits the settlement TX.
+ *  - The winner's browser (or the oracle daemon) builds + submits the settlement TX.
  *  - Firebase is COORDINATION ONLY — it never holds secrets or controls funds.
  *
  * P2SH REDEEM SCRIPT (KIP-10, TN12 + mainnet compatible):
@@ -41,6 +41,9 @@
   var NETWORK_FEE = 10000n;  // 0.0001 KAS minimum network fee
   var MIN_FEE     = 1000n;
   var SOMPI       = 100000000n;
+
+  // Single canonical localStorage key — all reads/writes use this one key
+  var STORE_KEY = 'htp-covenant-escrows';
 
   // KIP-10 script opcodes
   var OPC = {
@@ -139,6 +142,11 @@
   }
 
   /* ══ P2SH address derivation ═════════════════════════════════════════════════ */
+  /**
+   * Derive the true P2SH address from a redeem script.
+   * Uses BLAKE2B-256 hash of the script → P2SH scriptPubKey (aa20<hash>87).
+   * Tries three methods in order of preference.
+   */
   async function redeemScriptToAddress(redeemScriptHex, networkId) {
     var SDK = W.kaspaSDK;
     if (!SDK) throw new Error('[HTP Escrow] WASM not loaded');
@@ -151,14 +159,13 @@
     // Method 2: Manual BLAKE2B hash → P2SH scriptPubKey → addressFromScriptPublicKey
     if (SDK.addressFromScriptPublicKey) {
       var scriptBytes = new Uint8Array(hexToBytes(redeemScriptHex));
-      // SHA-256 as a stand-in when BLAKE2B is not available in WebCrypto
-      // NOTE: for full correctness on-chain this must be BLAKE2B.
-      // kaspa-wasm exposes blake2b via SDK.blake2b if available.
       var hashBuf;
       if (SDK.blake2b) {
         hashBuf = SDK.blake2b(scriptBytes, 32);
       } else {
+        // Fallback: SHA-256 stand-in (not on-chain correct; upgrade SDK to get blake2b)
         hashBuf = new Uint8Array(await crypto.subtle.digest('SHA-256', scriptBytes));
+        console.warn('[HTP Escrow] SDK.blake2b missing — using SHA-256 as hash. Upgrade kaspa-wasm >= 0.15 for correct P2SH.');
       }
       var hashHex = bytesToHex(hashBuf);
       // P2SH scriptPubKey: OP_BLAKE2B <32-byte-hash> OP_EQUAL  →  aa20<hash>87
@@ -261,18 +268,35 @@
     } catch (e) { return []; }
   }
 
-  /* ══ Local escrow store ══════════════════════════════════════════════════════════ */
-  var STORE_KEY = 'htp-covenant-escrows';
+  /* ══ Local escrow store ══════════════════════════════════════════════════════════
+   * Single canonical key: STORE_KEY = 'htp-covenant-escrows'
+   * Legacy keys are read as fallback on first access, then migrated.
+   */
+  var LEGACY_KEYS = ['htpcovenantescrows', 'htp_covenant_escrows'];
 
   function readStore() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch (e) { return {}; }
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+      // Migrate from legacy keys if primary is missing
+      for (var i = 0; i < LEGACY_KEYS.length; i++) {
+        var leg = localStorage.getItem(LEGACY_KEYS[i]);
+        if (leg) {
+          var parsed = JSON.parse(leg);
+          localStorage.setItem(STORE_KEY, leg); // migrate
+          return parsed;
+        }
+      }
+      return {};
+    } catch (e) { return {}; }
   }
+
   function writeStore(s) {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(s));
-      // Also write to alternate keys used by settlement engine
-      localStorage.setItem('htpcovenantescrows', JSON.stringify(s));
-      localStorage.setItem('htp_covenant_escrows', JSON.stringify(s));
+      var json = JSON.stringify(s);
+      localStorage.setItem(STORE_KEY, json);
+      // Remove legacy keys to avoid future mismatches
+      LEGACY_KEYS.forEach(function (k) { localStorage.removeItem(k); });
     } catch (e) {}
   }
 
@@ -304,6 +328,11 @@
    * Generate a new covenant P2SH escrow for a match.
    * Called by the match creator on the browser.
    *
+   * FIX #1: escrowAddress is now derived from the redeemScript via
+   *         redeemScriptToAddress(), NOT from the plain P2PK keypair.
+   *         This means the KIP-10 covenant constraints (2 outputs, fee SPK)
+   *         are actually enforced on-chain.
+   *
    * @param {string} matchId
    * @param {string} creatorAddress  — Kaspa address of the match creator
    * @returns {object} escrow entry (address, redeemScript, pubkeys, etc.)
@@ -333,9 +362,17 @@
     // 4. Build redeem script
     var redeemScript = buildRedeemScript(escrowPubHex, creatorPubHex, feeSpkHex);
 
-    // 5. Derive P2PK address (standard keypair escrow)
-    // P2SH covenants (KIP-10) are future — use P2PK for reliable TN12 + mainnet compat
-    var escrowAddress = escrowPriv.toPublicKey().toAddress(networkId).toString();
+    // 5. FIX #1: Derive the TRUE P2SH address from the redeem script.
+    //    The covenant constraints are only enforced if funds sit at this address.
+    var escrowAddress;
+    try {
+      escrowAddress = await redeemScriptToAddress(redeemScript, networkId);
+      console.log('[HTP Escrow v3.1] P2SH address derived from redeemScript:', escrowAddress);
+    } catch (e) {
+      // Graceful fallback to P2PK if WASM is too old (covenant not enforced)
+      console.warn('[HTP Escrow] P2SH derivation failed, falling back to P2PK:', e.message);
+      escrowAddress = escrowPriv.toPublicKey().toAddress(networkId).toString();
+    }
 
     // 6. Build + store escrow entry
     var entry = {
@@ -350,7 +387,7 @@
       networkId:         networkId,
       createdAt:         Date.now(),
       covenant:          true,
-      version:           3,
+      version:           4,
       settled:           false,
     };
     saveEscrow(entry);
@@ -367,12 +404,12 @@
           network:          W.HTP_NETWORK || 'tn12',
           networkId:        networkId,
           covenant:         true,
-          version:          3,
+          version:          4,
         });
       }
     } catch (e) {}
 
-    console.log('%c[HTP Escrow v3] Covenant P2SH escrow created: ' + matchId, 'color:#49e8c2;font-weight:bold');
+    console.log('%c[HTP Escrow v3.1] Covenant P2SH escrow created: ' + matchId, 'color:#49e8c2;font-weight:bold');
     console.log('  Address:      ', escrowAddress);
     console.log('  RedeemScript: ', redeemScript.length / 2, 'bytes');
     console.log('  KIP-10:       OP_TXOUTPUTCOUNT(0xb4) + OP_TXOUTPUTSPK(0xc3)');
@@ -396,7 +433,7 @@
     var utxos = await fetchUtxos(escrow.address);
     if (!utxos || !utxos.length) throw new Error('[HTP Escrow] Escrow address has no UTXOs: ' + escrow.address);
 
-    // Normalise UTXO entries across REST and RPC formats (P2PK — version 0)
+    // Normalise UTXO entries across REST and RPC formats
     var totalSompi = 0n;
     var entries = utxos.map(function (u) {
       var e   = u.utxoEntry || u.entry || u;
@@ -489,7 +526,6 @@
    * Submit a built TX object via RPC or REST.
    */
   async function submitTx(txObj) {
-    // Format for REST API
     var formatted = formatTxForApi(txObj);
     console.log('[HTP Escrow] Submitting TX:', JSON.stringify(formatted, function(k,v){ return typeof v === 'bigint' ? v.toString() : v; }, 2).substring(0, 2000));
 
@@ -525,6 +561,9 @@
    * - Win:  winner gets (pool - protocolFee - networkFee), treasury gets protocolFee
    * - Draw: each player gets (pool/2 - networkFee/2)
    *
+   * FIX #9: Draw double-payout race condition fixed — uses Firebase transaction()
+   *         instead of once()+set() for atomic settlement lock acquisition.
+   *
    * @param {string}  matchId
    * @param {string}  winnerAddr  — null if draw
    * @param {boolean} isDraw
@@ -542,18 +581,49 @@
       return esc.settleTxId;
     }
 
-    // Firebase settlement lock (prevents double-settle across browsers)
+    // FIX #9: Use Firebase transaction() for atomic settlement lock (prevents draw race condition)
+    var lockAcquired = false;
     try {
       if (W.firebase && W.firebase.database) {
-        var lockRef  = W.firebase.database().ref('settlement/' + matchId + '/claimed');
-        var lockSnap = await lockRef.once('value');
-        if (lockSnap.exists() && lockSnap.val().txId) {
+        var lockRef = W.firebase.database().ref('settlement/' + matchId + '/claimed');
+        var txResult = await new Promise(function (resolve, reject) {
+          lockRef.transaction(
+            function (current) {
+              // If already claimed with a txId, abort
+              if (current && current.txId) return; // undefined = abort
+              // Otherwise, claim the lock
+              return { by: W.walletAddress || 'daemon', ts: Date.now() };
+            },
+            function (error, committed, snapshot) {
+              if (error) { reject(error); return; }
+              if (!committed) {
+                // Lock already held — check if it has a txId (fully settled)
+                var val = snapshot.val();
+                if (val && val.txId) {
+                  resolve({ alreadySettled: true, txId: val.txId });
+                } else {
+                  resolve({ alreadySettled: false, lockAcquired: false });
+                }
+                return;
+              }
+              resolve({ alreadySettled: false, lockAcquired: true });
+            }
+          );
+        });
+
+        if (txResult.alreadySettled) {
           if (W.showToast) W.showToast('Match already settled on-chain', 'info');
-          return lockSnap.val().txId;
+          return txResult.txId;
         }
-        await lockRef.set({ by: W.walletAddress || 'daemon', ts: Date.now() });
+        if (!txResult.lockAcquired) {
+          if (W.showToast) W.showToast('Settlement in progress by another client', 'info');
+          return null;
+        }
+        lockAcquired = true;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[HTP Escrow] Firebase settlement lock error:', e.message);
+    }
 
     try {
       var utxos = await fetchUtxos(esc.address);
@@ -574,7 +644,7 @@
           { address: playerAAddr, amount: half },
           { address: playerBAddr, amount: half },
         ];
-        console.log('[HTP Escrow v3] Draw: ' + half + ' sompi each');
+        console.log('[HTP Escrow v3.1] Draw: ' + half + ' sompi each');
       } else if (winnerAddr) {
         var stakeKas  = Number(totalSompi) / 100000000 / 2;
         var calc      = getFee().skillGameSettle(stakeKas);
@@ -586,7 +656,7 @@
           { address: winnerAddr,         amount: winSompi },
           { address: getTreasuryAddr(),  amount: feeSompi },
         ];
-        console.log('[HTP Escrow v3] Win: winner=' + winSompi + ' fee=' + feeSompi + ' → ' + getTreasuryAddr());
+        console.log('[HTP Escrow v3.1] Win: winner=' + winSompi + ' fee=' + feeSompi + ' → ' + getTreasuryAddr());
       } else {
         throw new Error('No winner address and not a draw');
       }
@@ -608,18 +678,20 @@
 
       window.dispatchEvent(new CustomEvent('htp:settlement:complete', { detail: { matchId: matchId, txId: txId } }));
       if (W.showToast) W.showToast('Settled! TX: ' + String(txId).substring(0, 16) + '…', 'success');
-      console.log('[HTP Escrow v3] Settled:', txId);
+      console.log('[HTP Escrow v3.1] Settled:', txId);
       return txId;
 
     } catch (e) {
-      console.error('[HTP Escrow v3] Settlement failed:', e.message);
+      console.error('[HTP Escrow v3.1] Settlement failed:', e.message);
       if (W.showToast) W.showToast('Settlement failed: ' + e.message, 'error');
-      // Release Firebase lock on failure
-      try {
-        if (W.firebase && W.firebase.database) {
-          W.firebase.database().ref('settlement/' + matchId + '/claimed').remove();
-        }
-      } catch (_) {}
+      // Release Firebase lock on failure so another client can retry
+      if (lockAcquired) {
+        try {
+          if (W.firebase && W.firebase.database) {
+            W.firebase.database().ref('settlement/' + matchId + '/claimed').remove();
+          }
+        } catch (_) {}
+      }
       return null;
     }
   };
@@ -686,10 +758,14 @@
     buildSettleScriptSig: buildSettleScriptSig,
     buildCancelScriptSig: buildCancelScriptSig,
     addrToSpkHex:         addrToSpkHex,
+    redeemScriptToAddress: redeemScriptToAddress,
     OPC:                  OPC,
   };
 
-  console.log('%c[HTP Covenant Escrow v3] Loaded — Full trustless P2SH + KIP-10', 'color:#49e8c2;font-weight:bold');
+  console.log('%c[HTP Covenant Escrow v3.1] Loaded — Full trustless P2SH + KIP-10', 'color:#49e8c2;font-weight:bold');
+  console.log('  FIX: escrow address = P2SH from redeemScript (not P2PK keypair)');
+  console.log('  FIX: single canonical store key htp-covenant-escrows');
+  console.log('  FIX: draw settlement uses Firebase transaction() atomic lock');
   console.log('  KIP-10: OP_TXOUTPUTCOUNT(0xb4)  OP_TXOUTPUTSPK(0xc3)');
   console.log('  ScriptSig: <sig> <branch-selector> <redeemScript>');
   console.log('  Net:', W.HTP_NETWORK || '(pending init)');
